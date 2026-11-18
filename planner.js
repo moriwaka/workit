@@ -265,6 +265,7 @@ export function alternatives(rows, index, options, settings) {
     if (['warm','cool'].includes(current.type)) {
       if (item.held) row.seconds = (options.minutes>=20 ? 20 : 15) * (item.sides ? 2 : 1);
       else row.seconds = Math.min(item.pose==='all4' ? 35 : 90,rows[index].seconds);
+      if (item.sides) row.seconds = Math.max(2,row.seconds - row.seconds % 2);
       row.rest = rows[index].rest;
     }
     return row;

@@ -18,7 +18,7 @@ test('heel digs animate when a scheduled frame predates opening or replaying the
   t.after(() => {
     for (const key of ['matchMedia','requestAnimationFrame','document']) delete globalThis[key];
   });
-  const {attachDiagram,setDiagramFrame} = await import('../media.js?v=17');
+  const {attachDiagram,setDiagramFrame} = await import('../media.js?v=18');
   const frame = time => {
     assert.equal(callbacks.length,1);
     callbacks.shift()(time);

@@ -1,8 +1,9 @@
 import {poses, gear, zones, purposes, phases, levels, exercises, catalog, seatedDiagrams, diagramStages, footGuides} from './catalog.js?v=16';
-import {defaultSettings, ratingLabels, statusLabels, generate, estimate, alternatives, allowed, floorChanges, validate, repSeconds, explainPlan, menuMinutes, setLabels, sideSwitchSeconds} from './planner.js?v=17';
-import {attachDiagram, setDiagramFrame, announce, voiceAvailable, silence, unlockSound} from './media.js?v=17';
-import {Guide} from './guide.js?v=17';
+import {defaultSettings, ratingLabels, statusLabels, generate, estimate, alternatives, allowed, floorChanges, validate, repSeconds, explainPlan, menuMinutes, setLabels, sideSwitchSeconds} from './planner.js?v=18';
+import {attachDiagram, setDiagramFrame, announce, voiceAvailable, silence, unlockSound} from './media.js?v=18';
+import {Guide} from './guide.js?v=18';
 import {curatedSource, evidence, intensity, references} from './evidence.js?v=16';
+import {exerciseTypes, filterExercises, workoutBreakdown} from './workout-view.js?v=1';
 
 const app = document.querySelector('#app');
 const dialog = document.querySelector('#dialog');
@@ -25,6 +26,8 @@ let summary = null;
 let messageTimer;
 let failedOptions = null;
 let planSuggestions = [];
+let libraryFilters = {query:'',pose:'',type:'',availableOnly:true};
+let guideFullscreen = false;
 
 const escape = value => String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const button = (text, action, style='', value='', attrs='') =>
@@ -149,7 +152,7 @@ function renderPlan() {
 
 function planResult() {
   return plan ? planMarkup() : `<div class="section-title"><h2>トレーニングメニュー</h2></div>
-    ${failedOptions ? limitationNotice(failedOptions,null) : '<p class="empty">既存の運動資料に掲載されている種目から、条件に合う順番を組みます。</p>'}`;
+    ${failedOptions ? limitationNotice(failedOptions,null) : '<div class="empty"><p>目的・時間・姿勢を選んで、今日のメニューを作りましょう。</p><p>先に動きを確認するなら、<a href="#library">種目ライブラリへ</a>。</p></div>'}`;
 }
 
 function focusPlanResult() {
@@ -182,13 +185,19 @@ function mainCount(rows) {
 function planMarkup() {
   const time = estimate(plan.rows);
   const labels = setLabels(plan.rows);
+  const breakdown = workoutBreakdown(plan.rows);
   const unavailable = validPlan() ? '' : 'disabled';
   return `<div class="section-title"><h2>${escape(plan.name)}</h2><span class="badge">約${humanTime(time)}</span></div>
     <p class="subtle">${mainCount(plan.rows)} ＋ 準備運動・整理運動　·　種目名を押すと動き・負荷部位・出典を確認できます</p>
+    <section class="workout-overview" aria-label="メニューの時間配分">
+      <div class="phase-strip" aria-hidden="true">${breakdown.map(block=>`<span class="phase-${block.phase}" style="flex:${block.percent}"></span>`).join('')}</div>
+      <dl class="phase-totals">${breakdown.map(block=>`<div class="phase-total-${block.phase}"><dt>${phases[block.phase]}</dt><dd>${humanTime(block.seconds)}</dd></div>`).join('')}</dl>
+      <p class="subtle">休憩・左右の切り替えを含む目安</p>
+    </section>
     ${planNotice()}
     <div class="actions plan-start">${button('ガイドを始める','start-dialog','primary','',unavailable)}${button('メニューを保存','save-dialog','','',unavailable)}</div>
     ${Object.entries(phases).map(([phase,label]) => `<section class="routine-section"><h3>${label}${phase==='main' ? '' :
-      ` · 約${humanTime(estimate(plan.rows.filter(row=>exercises[row.id].type===phase)))}`}</h3>
+      ` · 約${humanTime(breakdown.find(block=>block.phase===phase)?.seconds ?? 0)}`}</h3>
       ${plan.rows.map((row,index) => {
         const item = exercises[row.id];
         const kind = ['warm','cool'].includes(item.type) ? item.type : 'main';
@@ -245,6 +254,39 @@ function limitationNotice(request, rows) {
 function validPlan() {
   return plan && !planNeedsRefresh() && plan.rows.every(row => allowed(exercises[row.id],plan.options,data.settings)
     && options.poses.includes(exercises[row.id].pose));
+}
+
+function renderLibrary() {
+  const select = (name,label,table,value) => `<label class="stack">${label}<select name="${name}"><option value="">すべて</option>${Object.entries(table).map(([key,text])=>`<option value="${key}" ${value===key ? 'selected' : ''}>${escape(text)}</option>`).join('')}</select></label>`;
+  app.innerHTML = `<section class="page library-page"><div class="page-head"><h1>種目ライブラリ</h1><a class="btn" href="#plan">メニューを作る</a></div>
+    <p class="library-intro">動きを知ってから、始めよう。種目を開くと、動作図・負荷の目安・参考資料を確認できます。</p>
+    <form id="library-filters" class="panel library-filters" role="search" aria-label="種目を検索">
+      <label class="stack library-query">種目名・部位・道具<input type="search" name="query" value="${escape(libraryFilters.query)}" placeholder="例：スクワット、太もも、壁" autocomplete="off"></label>
+      ${select('pose','姿勢',selectablePoses,libraryFilters.pose)}${select('type','種類',exerciseTypes,libraryFilters.type)}
+      <label class="library-available"><input type="checkbox" name="available" ${libraryFilters.availableOnly ? 'checked' : ''}>現在の設定で使える種目だけ</label>
+      <a href="#settings" class="subtle">道具・強度・除外する部位の設定</a>
+    </form>
+    <p id="library-count" class="subtle library-count" role="status" aria-live="polite"></p>
+    <div id="library-results" class="library-grid"></div></section>`;
+  updateLibraryResults();
+}
+
+function updateLibraryResults() {
+  const matches = filterExercises(libraryFilters,data.settings);
+  document.querySelector('#library-count').textContent = `${matches.length}種目`;
+  document.querySelector('#library-results').innerHTML = matches.length ? matches.map(item=> {
+    const available = allowed(item,{poses:Object.keys(selectablePoses)},data.settings);
+    return `<article class="list-card library-card"><div class="section-title"><span class="mini">${exerciseTypes[item.type]}</span><span class="badge">${poses[item.pose]}</span></div>
+      <h2>${escape(item.name)}</h2><p class="subtle">${escape(evidence[item.id].target)}</p>
+      <p class="subtle">${item.gear.length ? item.gear.map(key=>gear[key]).join('・') : '道具なし'} · ${levels[item.level]}${available ? '' : ' · 現在の設定では対象外'}</p>
+      <div>${button('動きを確認','preview','',item.id,`aria-label="${escape(item.name)}の動きを確認"`)}</div></article>`;
+  }).join('') : `<div class="empty library-empty"><p>条件に合う種目がありません。</p><p>検索語や絞り込みを変えてみてください。</p>${button('絞り込みをリセット','reset-library')}</div>`;
+}
+
+function readLibraryFilters(form) {
+  const values = new FormData(form);
+  libraryFilters = {query:values.get('query'),pose:values.get('pose'),type:values.get('type'),availableOnly:values.has('available')};
+  updateLibraryResults();
 }
 
 function renderSaved() {
@@ -315,6 +357,8 @@ function renderGuide(focus=false) {
   if (!session) return;
   const guide = session;
   const item = guide.exercise;
+  const next = guide.plan.rows[guide.index+1];
+  const nextSet = next ? setLabels(guide.plan.rows)[guide.index+1] : '';
   const preview = ['preview','rest','waiting'].includes(guide.phase);
   const resting = guide.phase==='rest';
   const betweenExercises = resting || guide.phase==='waiting';
@@ -344,7 +388,9 @@ function renderGuide(focus=false) {
       + button('スキップ','skip')
       + '<details class="guide-more"><summary>その他の操作</summary>'
       + button('今後も除外','exclude-dialog') + '</details>';
-  app.innerHTML = `<div class="guide-head"><h1>${guide.phaseLabel}</h1><div class="inline"><span class="subtle">${guide.index+1} / ${guide.plan.rows.length}</span>${button('終了','guide-end-dialog','danger small')}</div></div>
+  app.innerHTML = `<div class="guide-head"><h1>${guide.phaseLabel}</h1><div class="inline"><span class="subtle">${guide.index+1} / ${guide.plan.rows.length}</span>
+    ${document.fullscreenEnabled ? button(document.fullscreenElement ? '全画面を閉じる' : '全画面','fullscreen','small','',`aria-pressed="${Boolean(document.fullscreenElement)}"`) : ''}
+    ${button('終了','guide-end-dialog','danger small')}</div></div>
     <progress class="progress" value="${guide.index}" max="${guide.plan.rows.length}" aria-label="トレーニングの進行"></progress>
     ${restBanner}
     <div class="guide-grid">${diagram(item)}
@@ -357,6 +403,8 @@ function renderGuide(focus=false) {
       ${preview && !guide.known ? '<p class="subtle">アニメと説明を確認してから「動きがわかった」を押してください。</p>' : ''}
       ${preview && guide.isMain && !guide.warmed ? '<p class="alert">準備運動を飛ばしました。本編へ進む前に準備運動を済ませてください。</p>' : ''}
       ${preview && guide.needsPreparation ? '<p class="alert">姿勢や道具が変わります。「準備できた」を押すまで次の種目は始まりません。</p>' : ''}
+      <div class="guide-next"><span class="mini">${next ? 'この種目の次' : '最後の種目'}</span><p>${next ? `${escape(exercises[next.id].name)}${nextSet ? ` · ${nextSet}` : ''}` : '終わったら、今日の記録を確認しましょう。'}</p>
+        ${next ? `<span class="subtle">${duration(next)} · 前に休憩 ${next.rest}秒${item.pose!==exercises[next.id].pose ? ` · ${poses[exercises[next.id].pose]}へ` : ''}</span>` : ''}</div>
       <div class="controls">${secondary}</div>
     </section></div>
     <div class="guide-actions" role="group" aria-label="運動中の操作"><div>${fixedControls}</div></div>`;
@@ -462,11 +510,12 @@ function route() {
   }
   document.body.classList.toggle('guide-active',page==='guide' && Boolean(session));
   document.querySelectorAll('.top nav a').forEach(link => {
-    if (link.hash === (['saved','history','settings'].includes(page) ? location.hash : page && page !== 'plan' ? '' : '#plan')) {
+    if (link.hash === (['library','saved','history','settings'].includes(page) ? location.hash : page && page !== 'plan' ? '' : '#plan')) {
       link.setAttribute('aria-current','page');
     } else link.removeAttribute('aria-current');
   });
   switch (page) {
+    case 'library': renderLibrary(); break;
     case 'saved': renderSaved(); break;
     case 'history': renderHistory(); break;
     case 'settings': renderSettings(); break;
@@ -491,6 +540,8 @@ function startSession() {
     save,
     render:full => { if (full) renderGuide(true); else updateClock(); },
     finish:entry => {
+      if (guideFullscreen && document.fullscreenElement) document.exitFullscreen().catch(()=>{});
+      guideFullscreen = false;
       session = null;
       if (entry.results.length) {
         data.history.push(entry);
@@ -523,6 +574,10 @@ function download() {
 let pendingImport;
 app.addEventListener('change',async event => {
   const input = event.target;
+  if (input.closest('#library-filters')) {
+    if (input.name !== 'query') readLibraryFilters(input.form);
+    return;
+  }
   if (input.closest('#plan-form')) {
     const form = new FormData(input.form);
     options = {purpose:form.get('purpose'), minutes:Number(form.get('minutes')), poses:form.getAll('pose')};
@@ -558,6 +613,7 @@ app.addEventListener('change',async event => {
   }
 });
 app.addEventListener('input',event => {
+  if (event.target.name==='query' && event.target.closest('#library-filters')) readLibraryFilters(event.target.form);
   if (event.target.name === 'volume') document.querySelector('#volume-label').textContent = event.target.value+'%';
 });
 
@@ -571,6 +627,11 @@ function setGeneratedPlan(next,rows) {
 }
 
 document.addEventListener('submit',event => {
+  if (event.target.id==='library-filters') {
+    event.preventDefault();
+    readLibraryFilters(event.target);
+    return;
+  }
   if (event.target.id !== 'plan-form' && event.target.id !== 'save-form') return;
   event.preventDefault();
   if (event.target.id === 'save-form') {
@@ -599,6 +660,12 @@ document.addEventListener('click',event => {
   const {action,value} = target.dataset;
   const s = data.settings;
   switch (action) {
+    case 'reset-library':
+      libraryFilters = {query:'',pose:'',type:'',availableOnly:true};
+      renderLibrary();
+      document.querySelector('#library-filters input').focus();
+      break;
+    case 'fullscreen': toggleFullscreen(); break;
     case 'close': dialog.close(); break;
     case 'apply-plan-suggestion': {
       const suggestion = planSuggestions[Number(value)];
@@ -756,6 +823,25 @@ document.addEventListener('click',event => {
 });
 
 window.addEventListener('hashchange',route);
+async function toggleFullscreen() {
+  if (!session) return;
+  const currentSession = session;
+  try {
+    if (document.fullscreenElement) await document.exitFullscreen();
+    else {
+      await document.documentElement.requestFullscreen();
+      if (session!==currentSession && document.fullscreenElement) await document.exitFullscreen();
+      else guideFullscreen = Boolean(document.fullscreenElement);
+    }
+  } catch { snackbar('全画面表示を利用できません。ブラウザのウィンドウを広げてご利用ください。'); }
+}
+document.addEventListener('fullscreenchange',()=> {
+  if (!document.fullscreenElement) guideFullscreen = false;
+  document.querySelectorAll('[data-action="fullscreen"]').forEach(control=> {
+    control.textContent = document.fullscreenElement ? '全画面を閉じる' : '全画面';
+    control.setAttribute('aria-pressed',String(Boolean(document.fullscreenElement)));
+  });
+});
 document.addEventListener('visibilitychange',() => { if (document.hidden) session?.pause(); });
 document.addEventListener('keydown',event => {
   if (!session || dialog.open || event.repeat || event.altKey || event.ctrlKey || event.metaKey
@@ -764,6 +850,10 @@ document.addEventListener('keydown',event => {
     event.preventDefault();
     if (session.paused) session.resume();
     else session.pause();
+  }
+  if (event.code==='KeyF' && document.fullscreenEnabled) {
+    event.preventDefault();
+    toggleFullscreen();
   }
 });
 window.speechSynthesis?.addEventListener('voiceschanged',() => {

@@ -1,5 +1,5 @@
 import {frames, seatedDiagrams, stepLayout, stepStages, heelDigFloor, diagramFloor, footGuides} from './catalog.js?v=16';
-import {sideSwitchSeconds} from './planner.js?v=17';
+import {sideSwitchSeconds} from './planner.js?v=18';
 
 const pink = '#ed865f';
 const purple = '#523290';

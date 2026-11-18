@@ -1,11 +1,10 @@
 import {exercises, phases} from './catalog.js?v=16';
-import {effort, repSeconds, setLabels, sideSwitchSeconds} from './planner.js?v=17';
-import {announce, silence} from './media.js?v=17';
+import {effort, repSeconds, setLabels, sideSwitchSeconds} from './planner.js?v=18';
+import {announce, silence} from './media.js?v=18';
 
 export class Guide {
   constructor(plan, settings, callbacks) {
     this.plan = plan;
-    this.sets = setLabels(plan.rows);
     this.settings = settings;
     this.callbacks = callbacks;
     this.index = 0;
@@ -25,7 +24,7 @@ export class Guide {
     this.givePreview();
   }
 
-  get setLabel() { return this.sets[this.index]; }
+  get setLabel() { return setLabels(this.plan.rows)[this.index]; }
   get row() { return this.plan.rows[this.index]; }
   get exercise() { return exercises[this.row.id]; }
   get known() { return this.settings.known.includes(this.row.id); }

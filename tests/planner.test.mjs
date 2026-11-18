@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {catalog, exercises, poses, purposes, frames, stepLayout, stepStages, heelDigFloor, heelDigStages, kneeRollStages, diagramFloor, footGuides} from '../catalog.js?v=16';
 import {curatedSource, evidence, intensity, references} from '../evidence.js?v=16';
-import {allowed, alternatives, defaultSettings, estimate, floorChanges, generate, validate, explainPlan, setLabels} from '../planner.js?v=17';
+import {allowed, alternatives, defaultSettings, estimate, floorChanges, generate, validate, explainPlan, setLabels} from '../planner.js?v=18';
 
 const defaultOptions = {purpose:'stretch', minutes:15, poses:Object.keys(poses)};
 
@@ -259,7 +259,7 @@ test('guide waits for equipment or posture changes and advances automatically ot
   globalThis.requestAnimationFrame=()=>{};
   globalThis.document={hidden:false};
   globalThis.window={};
-  const {Guide}=await import('../guide.js?v=17');
+  const {Guide}=await import('../guide.js?v=18');
   const settings={...defaultSettings,voice:false,known:['march','warm-heel','wall-push','sit-hips']};
   const rows=[
     {id:'march',seconds:5,rest:0},{id:'warm-heel',seconds:5,rest:2},
@@ -303,7 +303,7 @@ test('timed and repetition exercises give the other side a full three-second tra
   globalThis.requestAnimationFrame=()=>{};
   globalThis.document={hidden:false};
   globalThis.window={};
-  const {Guide}=await import('../guide.js?v=17');
+  const {Guide}=await import('../guide.js?v=18');
   const timed = {id:'side-bend',seconds:10,rest:0};
   const counted = {id:'step-up',reps:4,rest:0};
   const settings = {...defaultSettings,voice:false,known:[timed.id,counted.id]};
@@ -391,7 +391,7 @@ test('knee rolls return through the middle and move both knees together with the
 test('the foot guides distinguish sole, heel and toe contact on the floor and the step', async () => {
   globalThis.matchMedia=()=>({matches:false});
   globalThis.requestAnimationFrame=()=>{};
-  const {footContacts}=await import('../media.js?v=17');
+  const {footContacts}=await import('../media.js?v=18');
   const contacts=(pose)=>footContacts(pose,diagramFloor).map(({kind})=>kind);
   for (const [id,expected] of [
     ['toe-raise',['heel','heel']], ['calf',['toe','toe']], ['sit-ankles',['heel','heel']],
