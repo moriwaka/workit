@@ -1,9 +1,11 @@
-import {frames, seatedDiagrams, stepLayout, stepStages} from './catalog.js?v=10';
+import {frames, seatedDiagrams, stepLayout, stepStages, heelDigFloor} from './catalog.js?v=11';
 
 const pink = '#ed865f';
 const purple = '#523290';
 const far = '#b8a8d7';
 const ink = '#2e2046';
+const heelColor = '#08645b';
+const toeColor = '#a33e15';
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const diagrams = new WeakMap();
 
@@ -20,6 +22,43 @@ function disk(ctx, [x,y], radius, color) {
   ctx.arc(x,y,radius,0,Math.PI*2);
   ctx.fillStyle = color;
   ctx.fill();
+}
+
+function footMarkers(ctx, heel, toe) {
+  const length = Math.hypot(toe[0]-heel[0],toe[1]-heel[1]);
+  if (!length) return;
+  const size = Math.min(4.6,length*.30);
+  disk(ctx,heel,size+.9,'#fff');
+  disk(ctx,heel,size,heelColor);
+  ctx.beginPath();
+  ctx.moveTo(toe[0],toe[1]-size);
+  ctx.lineTo(toe[0]+size,toe[1]);
+  ctx.lineTo(toe[0],toe[1]+size);
+  ctx.lineTo(toe[0]-size,toe[1]);
+  ctx.closePath();
+  ctx.strokeStyle='#fff';
+  ctx.lineWidth=1.4;
+  ctx.fillStyle=toeColor;
+  ctx.stroke();
+  ctx.fill();
+}
+
+function heelDigContact(ctx, points) {
+  // Only label a forward heel close to the floor with visibly elevated toes.
+  const feet = [[points.lf,points.lt],[points.rf,points.rt]];
+  const touching = feet.find(([heel,toe]) => heel[1]>=heelDigFloor-3.5 && heel[1]-toe[1]>10);
+  ctx.fillStyle=ink;
+  ctx.font='600 11px system-ui, sans-serif';
+  ctx.fillText('斜め横から',15,22);
+  ctx.fillText('床',268,heelDigFloor+3);
+  if (!touching) return;
+  const [heel,toe] = touching;
+  line(ctx,[[heel[0]-7,heelDigFloor],[heel[0]+7,heelDigFloor]],heelColor,3);
+  arrow(ctx,[[toe[0]+11,toe[1]+5],[toe[0]+11,toe[1]-10]]);
+  ctx.fillStyle=heelColor;
+  ctx.fillText('かかとが床に触れる',heel[0]-38,222);
+  ctx.fillStyle=toeColor;
+  ctx.fillText('つま先は上',toe[0]+17,toe[1]-12);
 }
 
 function pointBetween(a,b,ratio) {
@@ -102,16 +141,20 @@ function draw(canvas, exercise, first, last, ratio, stepIndex = 0) {
   if (step) stepPlatform(ctx);
   const p = Object.fromEntries(Object.keys(first).map(key => [key,pointBetween(first[key],last[key],ratio)]));
   const farSide = seated?.front ? purple : far;
+  const shoeWidth = step || seated || exercise.motion==='heelDig' ? 6 : 5;
   line(ctx,[p.hip,p.rk,p.rf],farSide,9);
   line(ctx,[p.rs,p.re,p.rh],farSide);
+  line(ctx,[p.rf,p.rt],farSide,shoeWidth);
+  footMarkers(ctx,p.rf,p.rt);
   line(ctx,[p.neck,p.hip],purple,16);
   line(ctx,[p.ls,p.rs],purple,9);
   line(ctx,[p.hip,p.lk,p.lf],purple,9);
   line(ctx,[p.ls,p.le,p.lh],purple);
   if (p.lhTip) line(ctx,[p.lh,p.lhTip],'#ab431d',4);
   if (p.rhTip) line(ctx,[p.rh,p.rhTip],'#ab431d',4);
-  line(ctx,[p.rf,p.rt],farSide,step || seated ? 6 : 5);
-  line(ctx,[p.lf,p.lt],step ? '#ab431d' : purple,step || seated ? 6 : 5);
+  line(ctx,[p.lf,p.lt],step ? '#ab431d' : purple,shoeWidth);
+  footMarkers(ctx,p.lf,p.lt);
+  if (exercise.motion==='heelDig') heelDigContact(ctx,p);
   disk(ctx,p.head,13,seated ? '#bfa7dd' : pink);
   disk(ctx,[p.head[0]+(seated?.front ? -4 : 5),p.head[1]-2],1.6,ink);
   if (seated?.front) disk(ctx,[p.head[0]+4,p.head[1]-2],1.6,ink);
@@ -144,7 +187,7 @@ export function setDiagramFrame(canvas, frame) {
   state.paused = frame !== 'play';
   state.started = performance.now();
   const last = state.poses.length-1;
-  const index = frame === 'end' ? (last===4 ? 1 : last) : frame.startsWith('step-') ? Number(frame.slice(5)) : 0;
+  const index = frame === 'end' ? (last===4 ? 1 : last) : frame.startsWith('pose-') ? Number(frame.slice(5)) : 0;
   draw(canvas,state.exercise,state.poses[index],state.poses[index],index ? 1 : 0,index);
 }
 

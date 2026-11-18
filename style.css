@@ -88,7 +88,7 @@ progress::-moz-progress-bar { background:var(--purple) }
 .diagram canvas { width:100%; display:block; aspect-ratio:300/230; max-height:460px; object-fit:contain }
 .diagram-controls { display:flex; flex-wrap:wrap; justify-content:center; gap:6px; padding:7px 10px 10px }
 .diagram-controls button[aria-pressed=true] { background:var(--purple); color:white; border-color:var(--purple) }
-.diagram figcaption { display:flex; flex-wrap:wrap; justify-content:center; gap:4px 18px; padding:8px 12px 12px; color:var(--ink); font-size:.82rem }
+.diagram figcaption,.foot-key { display:flex; flex-wrap:wrap; justify-content:center; gap:4px 18px; padding:8px 12px 12px; color:var(--ink); font-size:.82rem }
 .diagram figcaption span { line-height:1.5 }
 .diagram figcaption strong { color:var(--purple); margin-right:4px }
 .guide-copy h2 { font-size:clamp(1.3rem,2.5vw,2.15rem); line-height:1.25; margin:6px 0 }
@@ -138,3 +138,9 @@ dialog .stack { gap:9px }
   .guide-actions > div { justify-content:center }
   .guide-actions .btn { flex:1 0 auto; white-space:normal }
 }
+
+.foot-key span { display:inline-flex; align-items:center; gap:8px }
+.foot-key i { width:9px; height:9px; display:inline-block; flex:none }
+.heel-mark { border-radius:50%; background:#08645b }
+.toe-mark { transform:rotate(45deg); background:#a33e15 }
+.foot-key:has(+figcaption) { padding-bottom:0 }

@@ -1,5 +1,5 @@
-import {catalog, exercises, poses, gear, zones, purposes} from './catalog.js?v=10';
-import {curatedSource} from './evidence.js?v=10';
+import {catalog, exercises, poses, gear, zones, purposes} from './catalog.js?v=11';
+import {curatedSource} from './evidence.js?v=11';
 
 export const defaultSettings = {
   gear: ['wall'], blocked: [], excluded: [], level: 0, voice: true, volume: 75, known: [], adjustments: {}

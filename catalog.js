@@ -31,7 +31,6 @@ const sideLying = {...supine,head:[77,174],neck:[94,184],hip:[158,186],ls:[99,17
 const bases = {stand:standing, sit:sitting, back:supine, all4, kneel, side:sideLying};
 const motions = {
   march: [{rk:[177,135],rf:[180,168]}, {lk:[124,135],lf:[119,169]}],
-  heelDig: [{rk:[169,151],rf:[189,196]}, {lk:[132,151],lf:[115,196]}],
   shoulderRoll: [{}, {ls:[140,59],rs:[162,59],le:[135,89],re:[168,89],lh:[136,112],rh:[169,112]}],
   kneeBend: [{lh:[184,74],rh:[201,76],le:[164,79],re:[179,81]}, {head:[154,48],neck:[154,69],hip:[146,133],ls:[143,74],rs:[165,74],lh:[184,82],rh:[201,84],le:[166,84],re:[180,85],lk:[135,163],rk:[172,163]}],
   toe: [{rk:[165,160],rf:[185,195]}, {lk:[128,157],lf:[108,195]}],
@@ -141,9 +140,29 @@ export const stepStages = [
 ];
 
 // Start and finish on both feet and pass through the same stance when switching sides.
-const alternatingFeet = new Set(['march','heelDig','toe']);
+const alternatingFeet = new Set(['march','toe']);
 
-const frontViewMoves = new Set(['squat','kneeBend','march','heelDig','toe','side','shoulderRoll',
+export const heelDigFloor = 201;
+const heelDigStance = {...standing,head:[131,44],neck:[128,65],hip:[125,121],
+  ls:[137,72],rs:[119,72],le:[141,101],re:[115,99],lh:[142,126],rh:[111,123],
+  lk:[143,155],rk:[111,153],lf:[139,198],lt:[161,198],rf:[108,198],rt:[130,198]};
+const nearLift = {...heelDigStance,lk:[164,141],lf:[160,169],lt:[180,164]};
+const nearTouch = {...heelDigStance,lk:[161,154],lf:[192,198],lt:[214,181],rk:[122,154]};
+const farLift = {...heelDigStance,rk:[153,136],rf:[149,166],rt:[170,161]};
+const farTouch = {...heelDigStance,rk:[149,153],rf:[179,198],rt:[201,181],lk:[149,156]};
+export const heelDigStages = [
+  {points:heelDigStance,button:'両足を床に'},
+  {points:nearLift},
+  {points:nearTouch,button:'片足のかかと'},
+  {points:nearLift},
+  {points:heelDigStance},
+  {points:farLift},
+  {points:farTouch,button:'反対のかかと'},
+  {points:farLift},
+  {points:heelDigStance}
+];
+
+const frontViewMoves = new Set(['squat','kneeBend','march','toe','side','shoulderRoll',
   'scapula','reach','mountain','standingStill','elbowBend','forearmTurn']);
 
 function footTip(points, side, exercise) {
@@ -156,6 +175,7 @@ function footTip(points, side, exercise) {
 
 export function frames(exercise) {
   if (exercise.motion==='step') return stepStages.map(stage=>stage.points);
+  if (exercise.motion==='heelDig') return heelDigStages.map(stage=>stage.points);
   const motion = motions[exercise.motion];
   const stages = alternatingFeet.has(exercise.motion) ? [{},motion[0],{},motion[1],{}] : motion;
   return stages.map(delta => {
@@ -266,7 +286,7 @@ function phaseVariant(id,baseId,name,type,steps,extra={}) {
 }
 
 catalog.push(
-  exercise('warm-heel','かかとを前へ出す（ヒールディグ）','stand','heelDig','warm',['calf','quad','hip'],['両足で立ち、支える側の膝を軽くゆるめる。','片足のかかとを前に置き、つま先を上げて戻す。左右交互に。'],'一歩を小さくし、バランスを保てるペースで。'),
+  exercise('warm-heel','かかとを前へ出す（ヒールディグ）','stand','heelDig','warm',['calf','quad','hip'],['両足で立ち、支える側の膝を軽くゆるめる。','片足を前に出し、かかとだけ床につける。つま先は上に向け、足を戻して反対側も行う。'],'一歩を小さくし、バランスを保てるペースで。'),
   exercise('warm-shoulder','小さく肩を回す','stand','shoulderRoll','warm',['shoulder','upper'],['両腕を体の横に下ろす。','肩を前へ数回、後ろへ数回、小さく回す。'],'腕を上げず、肩に痛みが出ない範囲で。'),
   exercise('warm-knee','浅い膝曲げ','stand','kneeBend','warm',['hip','quad','core','shoulder'],['足を肩幅にし、無理のない高さで手を前に出す。','膝を軽く曲げて数センチ下がり、ゆっくり戻る。'],'膝を深く曲げず、手を前に出すと肩が痛む場合は飛ばす。')
 );

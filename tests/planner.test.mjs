@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {catalog, exercises, poses, purposes, frames, stepLayout, stepStages} from '../catalog.js?v=10';
-import {curatedSource, evidence, intensity, references} from '../evidence.js?v=10';
-import {allowed, alternatives, defaultSettings, estimate, floorChanges, fullSequence, generate, validate, explainPlan} from '../planner.js?v=10';
+import {catalog, exercises, poses, purposes, frames, stepLayout, stepStages, heelDigFloor, heelDigStages} from '../catalog.js?v=11';
+import {curatedSource, evidence, intensity, references} from '../evidence.js?v=11';
+import {allowed, alternatives, defaultSettings, estimate, floorChanges, fullSequence, generate, validate, explainPlan} from '../planner.js?v=11';
 
 const defaultOptions = {purpose:'stretch', minutes:15, poses:Object.keys(poses)};
 
@@ -197,7 +197,7 @@ test('front-facing knees track the feet, and planted toes stay fixed in calf rai
 });
 
 test('alternating foot demonstrations start and return with both feet on the floor', () => {
-  for (const id of ['march','slow-march','warm-heel','toe']) {
+  for (const id of ['march','slow-march','toe']) {
     const [start,first,center,second,end]=frames(exercises[id]);
     assert.deepEqual(center,start);
     assert.deepEqual(end,start);
@@ -213,7 +213,7 @@ test('guide waits for equipment or posture changes and advances automatically ot
   globalThis.requestAnimationFrame=()=>{};
   globalThis.document={hidden:false};
   globalThis.window={};
-  const {Guide}=await import('../guide.js?v=10');
+  const {Guide}=await import('../guide.js?v=11');
   const settings={...defaultSettings,voice:false,known:['march','warm-heel','wall-push','sit-hips']};
   const rows=[
     {id:'march',seconds:5,rest:0},{id:'warm-heel',seconds:5,rest:2},
@@ -243,5 +243,24 @@ test('guide waits for equipment or posture changes and advances automatically ot
   } finally {
     clearInterval(guide.interval);
     for(const key of ['matchMedia','requestAnimationFrame','document','window']) delete globalThis[key];
+  }
+});
+
+test('heel digs alternate with only the forward heel touching and its toes elevated', () => {
+  const sequence=frames(exercises['warm-heel']);
+  assert.deepEqual(heelDigStages.map(pose=>pose.button).filter(Boolean),['両足を床に','片足のかかと','反対のかかと']);
+  const [start,leftLift,leftContact,leftReturn,center,rightLift,rightContact,rightReturn,end]=sequence;
+  assert.deepEqual(start,center);
+  assert.deepEqual(start,end);
+  for (const [side,resting,lift,contact,returning] of [
+    ['l','r',leftLift,leftContact,leftReturn],['r','l',rightLift,rightContact,rightReturn]
+  ]) {
+    assert.equal(contact[side+'f'][1],heelDigFloor-3);
+    assert.ok(contact[side+'t'][1]<=heelDigFloor-15);
+    assert.ok(contact[side+'f'][0]>start[side+'t'][0]);
+    assert.deepEqual(contact[resting+'f'],start[resting+'f']);
+    assert.deepEqual(contact[resting+'t'],start[resting+'t']);
+    assert.ok(lift[side+'f'][1]<heelDigFloor-15);
+    assert.deepEqual(lift[side+'f'],returning[side+'f']);
   }
 });
