@@ -1,10 +1,11 @@
 import {exercises, phases} from './catalog.js?v=12';
-import {effort, repSeconds} from './planner.js?v=14';
+import {effort, repSeconds, setLabels} from './planner.js?v=15';
 import {announce, silence} from './media.js?v=13';
 
 export class Guide {
   constructor(plan, settings, callbacks) {
     this.plan = plan;
+    this.sets = setLabels(plan.rows);
     this.settings = settings;
     this.callbacks = callbacks;
     this.index = 0;
@@ -23,6 +24,7 @@ export class Guide {
     this.givePreview();
   }
 
+  get setLabel() { return this.sets[this.index]; }
   get row() { return this.plan.rows[this.index]; }
   get exercise() { return exercises[this.row.id]; }
   get known() { return this.settings.known.includes(this.row.id); }
@@ -47,7 +49,7 @@ export class Guide {
     const intro = this.phase === 'rest' ? '休憩です。次は、' : '';
     const explanation = this.known ? '' : '。' + this.exercise.steps.join('') + this.exercise.cue;
     const setup = this.needsPreparation ? '。姿勢や道具を確認し、準備できたらボタンを押してください。' : '';
-    this.speak(intro + this.exercise.name + '。' + this.doseText + explanation + setup,520);
+    this.speak(intro + this.exercise.name + '。' + (this.setLabel ? this.setLabel + '。' : '') + this.doseText + explanation + setup,520);
   }
 
   get doseText() {

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {catalog, exercises, poses, purposes, frames, stepLayout, stepStages, heelDigFloor, heelDigStages, diagramFloor, footGuides} from '../catalog.js?v=12';
 import {curatedSource, evidence, intensity, references} from '../evidence.js?v=12';
-import {allowed, alternatives, defaultSettings, estimate, floorChanges, generate, validate, explainPlan} from '../planner.js?v=14';
+import {allowed, alternatives, defaultSettings, estimate, floorChanges, generate, validate, explainPlan, setLabels} from '../planner.js?v=15';
 
 const defaultOptions = {purpose:'stretch', minutes:15, poses:Object.keys(poses)};
 
@@ -37,6 +37,30 @@ test('generator keeps standing and floor in blocks while honoring excluded regio
     }
   }
   assert.ok(plans>900);
+});
+
+test('30- and 40-minute plans extend past 16 sets and survive saving and backup restore', () => {
+  for (const minutes of [30,40]) {
+    const options = {purpose:'mixed',minutes,poses:Object.keys(poses)};
+    const rows = generate(options,defaultSettings,()=>.42);
+    const main = rows.filter(row=>['strength','stretch'].includes(exercises[row.id].type));
+    assert.ok(main.length>16);
+    assert.ok(estimate(rows)>=minutes*60-75);
+    assert.ok(estimate(rows)<=minutes*60);
+    assert.ok(floorChanges(rows)<=1);
+    const labels = setLabels(rows);
+    assert.ok(labels.includes('2セット目'));
+    assert.ok(!labels.includes('4セット目'));
+    assert.ok(rows.length>30);
+
+    const saved = [{id:'test-saved',name:'テスト',options,rows}];
+    const history = [{id:'test-history',name:'テスト',date:new Date(0).toISOString(),active:0,ended:false,
+      rating:'',results:rows.map(row=>({row,status:'done',rating:''}))}];
+    const restored = validate({version:1,settings:defaultSettings,saved,history});
+    assert.deepEqual(restored.saved,saved);
+    assert.deepEqual(restored.history,history);
+  }
+  assert.deepEqual(setLabels([{id:'a'},{id:'b'},{id:'a'},{id:'a'}]),['1セット目','','2セット目','3セット目']);
 });
 
 test('substitutions preserve the posture and time limits', () => {
@@ -235,7 +259,7 @@ test('guide waits for equipment or posture changes and advances automatically ot
   globalThis.requestAnimationFrame=()=>{};
   globalThis.document={hidden:false};
   globalThis.window={};
-  const {Guide}=await import('../guide.js?v=14');
+  const {Guide}=await import('../guide.js?v=15');
   const settings={...defaultSettings,voice:false,known:['march','warm-heel','wall-push','sit-hips']};
   const rows=[
     {id:'march',seconds:5,rest:0},{id:'warm-heel',seconds:5,rest:2},
@@ -258,6 +282,7 @@ test('guide waits for equipment or posture changes and advances automatically ot
     assert.equal(guide.phase,'work');
     guide.complete();
     assert.equal(guide.row.id,'wall-push');
+    assert.equal(guide.setLabel,'2セット目');
     assert.equal(guide.needsPreparation,false);
     endRest();
     assert.equal(guide.phase,'work');

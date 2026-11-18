@@ -6,6 +6,7 @@ export const defaultSettings = {
 };
 
 export const repSeconds = 4;
+const maxPlanRows = 64;
 export const ratingLabels = {easy:'余裕あり', okay:'ちょうどよい', hard:'きつい'};
 // Keep the old overlap status readable in existing histories and backups.
 export const statusLabels = {done:'完了', skipped:'スキップ', excluded:'今後も除外', pain:'痛みで停止', stopped:'中断', overlap:'負荷の重複でスキップ'};
@@ -37,6 +38,17 @@ export function effort(row) {
 
 export function estimate(rows) {
   return rows.reduce((total, row, index) => total + effort(row) + (index ? row.rest : 0), 0);
+}
+
+export function setLabels(rows) {
+  const totals = new Map();
+  const counts = new Map();
+  for (const {id} of rows) totals.set(id,(totals.get(id) ?? 0)+1);
+  return rows.map(({id})=>{
+    const count = (counts.get(id) ?? 0)+1;
+    counts.set(id,count);
+    return totals.get(id)>1 ? `${count}セット目` : '';
+  });
 }
 
 function floorChange(first, second) {
@@ -102,7 +114,10 @@ export function generate(options, settings, random = Math.random) {
   const closings = byId(main,'cool');
   const warmTimes = Object.fromEntries(main.map(item=>[item.id,estimate(openings[item.id])]));
   const coolTimes = Object.fromEntries(main.map(item=>[item.id,estimate(closings[item.id])+10]));
-  const maxRepeats = seconds >= 1800 ? 3 : 2;
+  const extended = options.minutes >= 30;
+  const maxRepeats = extended ? 3 : 2;
+  const maxRounds = extended ? Math.min(maxPlanRows,main.length*maxRepeats) : 16;
+  const doses = Object.fromEntries(main.map(item=>[item.id,dose(item,settings)]));
   const priorities = Object.fromEntries(main.map(item => [item.id, random()]));
 
   function compare(a,b) {
@@ -111,24 +126,32 @@ export function generate(options, settings, random = Math.random) {
       || b.used.size - a.used.size
       || a.floorChanges - b.floorChanges
       || a.poseChanges - b.poseChanges
+      || (extended ? b.total - a.total : 0)
       || b.preference - a.preference;
+  }
+
+  function compareFinished(a,b) {
+    if (!extended) return compare(a,b);
+    return b.types.size - a.types.size || b.total - a.total || compare(a,b);
   }
 
   let beam = [{rows:[], used:new Set(), types:new Set(), time:0, mainFloorChanges:0, mainPoseChanges:0, preference:0}];
   let best = null;
-  for (let round = 0; round < 16 && beam.length; round++) {
+  for (let round = 0; round < maxRounds && beam.length; round++) {
     const expanded = [];
     for (const candidate of beam) {
       const last = candidate.rows.at(-1);
       for (const item of main) {
-        const row = dose(item, settings);
+        const row = doses[item.id];
         const time = candidate.time + effort(row) + row.rest;
         if (candidate.rows.filter(previous => previous.id === row.id).length >= maxRepeats) continue;
         const firstId = candidate.rows[0]?.id ?? item.id;
         const firstPose = exercises[firstId].pose;
         const opening = openings[firstId];
         const closing = closings[item.id];
-        if (!opening.length || !closing.length || time + warmTimes[firstId] + coolTimes[item.id] > seconds) continue;
+        const total = time + warmTimes[firstId] + coolTimes[item.id];
+        if (!opening.length || !closing.length || total > seconds
+          || candidate.rows.length+1+opening.length+closing.length > maxPlanRows) continue;
         const warmPose = exercises[opening.at(-1).id].pose;
         const coolPose = exercises[closing[0].id].pose;
         const lastPose = last ? exercises[last.id].pose : item.pose;
@@ -138,7 +161,7 @@ export function generate(options, settings, random = Math.random) {
         const mainPoseChanges = candidate.mainPoseChanges + Number(lastPose !== item.pose);
         expanded.push({
           rows:[...candidate.rows,row], used:new Set([...candidate.used,item.id]),
-          types:new Set([...candidate.types,item.type]), time, opening, closing,
+          types:new Set([...candidate.types,item.type]), time, total, opening, closing,
           mainFloorChanges, mainPoseChanges,
           floorChanges:standingFloorChanges,
           poseChanges:mainPoseChanges + Number(warmPose !== firstPose) + Number(item.pose !== coolPose),
@@ -148,12 +171,14 @@ export function generate(options, settings, random = Math.random) {
     }
     expanded.sort(compare);
     beam = expanded.slice(0,100);
-    if (beam.length && (!best || compare(beam[0],best) < 0)) best = beam[0];
+    for (const candidate of beam) {
+      if (!best || compareFinished(candidate,best)<0) best = candidate;
+    }
   }
   if (!best) return null;
 
   const {opening,closing} = best;
-  return [...opening,...best.rows,...closing];
+  return [...opening,...best.rows.map(row=>({...row})),...closing];
 }
 
 export const menuMinutes = [10,15,20,30,40];
@@ -279,7 +304,7 @@ export function validate(data) {
   const saved = data.saved.map(entry => {
     if (!id(entry.id) || !name(entry.name) || !Object.hasOwn(purposes,entry.options?.purpose)
       || !numberBetween(entry.options.minutes,10,40) || !Array.isArray(entry.rows)
-      || entry.rows.length < 3 || entry.rows.length > 30) throw new Error('保存メニューが不正です。');
+      || entry.rows.length < 3 || entry.rows.length > maxPlanRows) throw new Error('保存メニューが不正です。');
     const rows = entry.rows.map(cleanRow);
     const order = rows.map(row=>({warm:0,strength:1,stretch:1,cool:2})[exercises[row.id].type]);
     if (estimate(rows) > entry.options.minutes*60 || order[0]!==0 || order.at(-1)!==2
@@ -292,7 +317,7 @@ export function validate(data) {
   });
   const history = data.history.map(entry => {
     if (!id(entry.id) || !name(entry.name) || !dates(entry.date) || !numberBetween(entry.active,0,86400)
-      || typeof entry.ended !== 'boolean' || !Array.isArray(entry.results) || entry.results.length > 30
+      || typeof entry.ended !== 'boolean' || !Array.isArray(entry.results) || entry.results.length > maxPlanRows
       || (entry.rating !== '' && !Object.hasOwn(ratingLabels,entry.rating))) throw new Error('履歴の形式が不正です。');
     const results = entry.results.map(item => {
       const row = cleanRow(item.row);

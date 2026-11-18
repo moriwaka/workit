@@ -1,7 +1,7 @@
 import {poses, gear, zones, purposes, phases, levels, exercises, catalog, seatedDiagrams, stepStages, heelDigStages, footGuides} from './catalog.js?v=12';
-import {defaultSettings, ratingLabels, statusLabels, generate, estimate, alternatives, allowed, floorChanges, validate, repSeconds, explainPlan, menuMinutes} from './planner.js?v=14';
+import {defaultSettings, ratingLabels, statusLabels, generate, estimate, alternatives, allowed, floorChanges, validate, repSeconds, explainPlan, menuMinutes, setLabels} from './planner.js?v=15';
 import {attachDiagram, setDiagramFrame, announce, voiceAvailable, silence, unlockSound} from './media.js?v=13';
-import {Guide} from './guide.js?v=14';
+import {Guide} from './guide.js?v=15';
 import {curatedSource, evidence, intensity, references} from './evidence.js?v=12';
 
 const app = document.querySelector('#app');
@@ -173,11 +173,18 @@ function planNeedsRefresh() {
 
 const mainRows = rows => rows.filter(row=>['strength','stretch'].includes(exercises[row.id].type));
 
+function mainCount(rows) {
+  const main = mainRows(rows);
+  const count = new Set(main.map(row=>row.id)).size;
+  return `${count}種目${main.length>count ? `・計${main.length}セット` : ''}`;
+}
+
 function planMarkup() {
   const time = estimate(plan.rows);
+  const labels = setLabels(plan.rows);
   const unavailable = validPlan() ? '' : 'disabled';
   return `<div class="section-title"><h2>${escape(plan.name)}</h2><span class="badge">約${humanTime(time)}</span></div>
-    <p class="subtle">${mainRows(plan.rows).length}種目 ＋ 準備運動・整理運動　·　種目名を押すと動き・負荷部位・出典を確認できます</p>
+    <p class="subtle">${mainCount(plan.rows)} ＋ 準備運動・整理運動　·　種目名を押すと動き・負荷部位・出典を確認できます</p>
     ${planNotice()}
     <div class="actions plan-start">${button('ガイドを始める','start-dialog','primary','',unavailable)}${button('メニューを保存','save-dialog','','',unavailable)}</div>
     ${Object.entries(phases).map(([phase,label]) => `<section class="routine-section"><h3>${label}${phase==='main' ? '' :
@@ -186,9 +193,10 @@ function planMarkup() {
         const item = exercises[row.id];
         const kind = ['warm','cool'].includes(item.type) ? item.type : 'main';
         if (kind !== phase) return '';
-        return `<div class="routine-row"><div><button type="button" class="move-name" data-action="preview" data-value="${row.id}">${escape(item.name)}</button>
+        const set = labels[index] ? ` · ${labels[index]}` : '';
+        return `<div class="routine-row"><div><button type="button" class="move-name" data-action="preview" data-value="${row.id}">${escape(item.name)}${set}</button>
           <div class="move-meta">${details(item)}${index ? ` · 前に休憩 ${row.rest}秒` : ''}</div></div>
-          <span class="badge">${duration(row)}</span>${button('差し替え','replace','small',index, `aria-label="${escape(item.name)}を差し替え"`)}</div>`;
+          <span class="badge">${duration(row)}</span>${button('差し替え','replace','small',index, `aria-label="${escape(item.name)}${set}を差し替え"`)}</div>`;
       }).join('')}</section>`).join('')}
     `;
 }
@@ -214,7 +222,7 @@ function limitationNotice(request, rows) {
     warm:'選んだ姿勢と設定で使えるウォームアップがありません。',
     cool:'選んだ姿勢と設定で使えるクールダウンがありません。',
     type:'選んだ姿勢と設定に合う種目が、片方の種類に限られています。',
-    sequence:`条件に合う本編の候補は ${limitation.eligibleMain} 種目です。立位と床を往復せず、各種目の運動時間と休憩を含めて組んだ結果です。`,
+    sequence:`条件に合う本編の候補は ${limitation.eligibleMain} 種目です。${request.minutes>=30 ? '自動作成では、各種目を最大3セットまで組み込みます。' : '立位と床を往復せず、運動時間と休憩を含めて組みました。'}`,
     fit:'休憩・準備運動・整理運動を含めると、今の条件で本編まで組めません。'
   };
   const summary = rows
@@ -242,7 +250,7 @@ function validPlan() {
 function renderSaved() {
   app.innerHTML = `<section class="page"><div class="page-head"><h1>保存メニュー</h1><a class="btn" href="#plan">メニュー作成</a></div>
   <div class="stack">${data.saved.length ? data.saved.map(entry => `<article class="panel list-card">
-  <h2>${escape(entry.name)}</h2><p class="subtle">${purposes[entry.options.purpose]} · 約${humanTime(estimate(entry.rows))} · ${mainRows(entry.rows).length}種目</p>
+  <h2>${escape(entry.name)}</h2><p class="subtle">${purposes[entry.options.purpose]} · 約${humanTime(estimate(entry.rows))} · ${mainCount(entry.rows)}</p>
   <div class="actions">${button('メニューを開く','open-plan','primary',entry.id)}${button('削除','delete-plan-dialog','danger',entry.id)}</div></article>`).join('') : '<p class="empty">保存したメニューはまだありません。</p>'}</div></section>`;
 }
 
@@ -332,7 +340,7 @@ function renderGuide(focus=false) {
     <div class="guide-grid">${diagram(item)}
     <section class="panel guide-copy">
       <p class="mini" id="guide-stage" tabindex="-1">${guide.paused ? '一時停止中' : stage}</p>
-      <h2>${escape(item.name)}</h2><p class="subtle">${details(item)} · ${duration(guide.row)}</p>
+      <h2>${escape(item.name)}${guide.setLabel ? ` · ${guide.setLabel}` : ''}</h2><p class="subtle">${details(item)} · ${duration(guide.row)}</p>
       <div class="scores"><span class="clock" id="count"></span><span class="subtle" id="count-caption"></span></div>
       ${guide.phase === 'pain' ? '<p class="alert">運動を止めてください。強い痛み、胸の痛み、めまいなどがある場合は、セッションを終了してください。</p>' : description(item)}
       ${preview && !guide.known ? '<p class="subtle">アニメと説明を確認してから「動きがわかった」を押してください。</p>' : ''}
