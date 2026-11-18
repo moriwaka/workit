@@ -1,8 +1,8 @@
-import {poses, gear, zones, purposes, phases, levels, exercises, catalog, seatedDiagrams, stepStages, heelDigStages} from './catalog.js?v=11';
-import {defaultSettings, ratingLabels, statusLabels, generate, estimate, alternatives, allowed, fullSequence, floorChanges, validate, repSeconds, explainPlan, menuMinutes} from './planner.js?v=11';
-import {attachDiagram, setDiagramFrame, announce, voiceAvailable, silence, unlockSound} from './media.js?v=11';
-import {Guide} from './guide.js?v=11';
-import {curatedSource, evidence, intensity, references} from './evidence.js?v=11';
+import {poses, gear, zones, purposes, phases, levels, exercises, catalog, seatedDiagrams, stepStages, heelDigStages, footGuides} from './catalog.js?v=12';
+import {defaultSettings, ratingLabels, statusLabels, generate, estimate, alternatives, allowed, fullSequence, floorChanges, validate, repSeconds, explainPlan, menuMinutes} from './planner.js?v=12';
+import {attachDiagram, setDiagramFrame, announce, voiceAvailable, silence, unlockSound} from './media.js?v=12';
+import {Guide} from './guide.js?v=12';
+import {curatedSource, evidence, intensity, references} from './evidence.js?v=12';
 
 const app = document.querySelector('#app');
 const dialog = document.querySelector('#dialog');
@@ -64,20 +64,22 @@ function confirmDialog(title, message, action, value='', label='確定') {
 
 function diagram(item) {
   const guide = seatedDiagrams[item.motion];
+  const footGuide = footGuides[item.motion];
   const step = item.motion==='step';
   const staged = step ? stepStages : item.motion==='heelDig' ? heelDigStages : null;
-  const positions = staged
-    ? [...staged.flatMap((stage,index)=>stage.button ? [[`pose-${index}`,stage.button]] : []),['play','アニメ']]
-    : [['start','開始姿勢'],['end','動かした後'],['play','アニメ']];
+  const indexed = staged?.flatMap((stage,index)=>stage.button ? [[index,stage.button]] : []) ?? footGuide?.buttons;
+  const positions = indexed ? indexed.map(([index,label])=>[`pose-${index}`,label])
+    : [['start','開始姿勢'],['end','動かした後']];
+  positions.push(['play','アニメ']);
   const initial = item.still || matchMedia('(prefers-reduced-motion: reduce)').matches ? positions[0][0] : 'play';
   return `<figure class="diagram">
     <canvas width="600" height="460" data-diagram="${item.id}" role="img" aria-label="${escape(item.name)}の動作図">${escape(item.name)}</canvas>
     ${item.still ? '' : `<div class="diagram-controls" role="group" aria-label="動作図の表示">
       ${positions.map(([mode,label]) => button(label,'diagram','small',mode,`aria-pressed="${mode===initial}"`)).join('')}</div>`}
-    <div class="foot-key"><span><i class="heel-mark"></i>かかと</span><span><i class="toe-mark"></i>つま先</span></div>
-    ${step ? '<figcaption>太い橙色の線は先に出す足。正面図で膝とつま先の向きを確認できます。</figcaption>' : ''}
+    <div class="foot-key"><span><i class="heel-mark"></i>かかと</span><span><i class="toe-mark"></i>つま先</span>${footGuide || item.motion==='heelDig' ? '<span><i class="contact-mark"></i>床・台に触れる部分</span>' : ''}</div>
+    ${footGuide ? `<figcaption>${escape(footGuide.caption)}</figcaption>` : ''}
     ${item.motion==='heelDig' ? '<figcaption>前に出した足は、かかとだけ床につけ、つま先を上へ向けます。</figcaption>' : ''}
-    ${guide ? `<figcaption>${guide.labels.map((label,index) => `<span>${guide.labels.length>1 ? (index===0 ? '<strong>開始</strong> ' : '<strong>動き</strong> ') : ''}${escape(label)}</span>`).join('')}</figcaption>` : ''}
+    ${guide?.labels.length ? `<figcaption>${guide.labels.map((label,index) => `<span>${guide.labels.length>1 ? (index===0 ? '<strong>開始</strong> ' : '<strong>動き</strong> ') : ''}${escape(label)}</span>`).join('')}</figcaption>` : ''}
     </figure>`;
 }
 

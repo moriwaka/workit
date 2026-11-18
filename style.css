@@ -143,4 +143,5 @@ dialog .stack { gap:9px }
 .foot-key i { width:9px; height:9px; display:inline-block; flex:none }
 .heel-mark { border-radius:50%; background:#08645b }
 .toe-mark { transform:rotate(45deg); background:#a33e15 }
+.foot-key .contact-mark { width:15px; height:3px; border-radius:2px; background:#08645b }
 .foot-key:has(+figcaption) { padding-bottom:0 }

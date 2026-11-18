@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {catalog, exercises, poses, purposes, frames, stepLayout, stepStages, heelDigFloor, heelDigStages} from '../catalog.js?v=11';
-import {curatedSource, evidence, intensity, references} from '../evidence.js?v=11';
-import {allowed, alternatives, defaultSettings, estimate, floorChanges, fullSequence, generate, validate, explainPlan} from '../planner.js?v=11';
+import {catalog, exercises, poses, purposes, frames, stepLayout, stepStages, heelDigFloor, heelDigStages, diagramFloor, footGuides} from '../catalog.js?v=12';
+import {curatedSource, evidence, intensity, references} from '../evidence.js?v=12';
+import {allowed, alternatives, defaultSettings, estimate, floorChanges, fullSequence, generate, validate, explainPlan} from '../planner.js?v=12';
 
 const defaultOptions = {purpose:'stretch', minutes:15, poses:Object.keys(poses)};
 
@@ -183,8 +183,11 @@ test('step-up plants heel and toe on the platform while the knee and body move',
 test('front-facing knees track the feet, and planted toes stay fixed in calf raises', () => {
   for(const pose of frames(exercises.squat)) {
     for(const side of ['l','r']) {
-      assert.ok(Math.abs(pose[side+'k'][0]-pose[side+'f'][0])<=1);
-      assert.equal(pose[side+'t'][0],pose[side+'f'][0]);
+      const [heelX,heelY]=pose[side+'f'];
+      const [toeX,toeY]=pose[side+'t'];
+      const [kneeX]=pose[side+'k'];
+      assert.ok(kneeX>=Math.min(heelX,toeX)-1 && kneeX<=Math.max(heelX,toeX)+1);
+      assert.equal(heelY,toeY);
     }
   }
   const [down,up]=frames(exercises.calf);
@@ -197,7 +200,7 @@ test('front-facing knees track the feet, and planted toes stay fixed in calf rai
 });
 
 test('alternating foot demonstrations start and return with both feet on the floor', () => {
-  for (const id of ['march','slow-march','toe']) {
+  for (const id of ['march','slow-march']) {
     const [start,first,center,second,end]=frames(exercises[id]);
     assert.deepEqual(center,start);
     assert.deepEqual(end,start);
@@ -213,7 +216,7 @@ test('guide waits for equipment or posture changes and advances automatically ot
   globalThis.requestAnimationFrame=()=>{};
   globalThis.document={hidden:false};
   globalThis.window={};
-  const {Guide}=await import('../guide.js?v=11');
+  const {Guide}=await import('../guide.js?v=12');
   const settings={...defaultSettings,voice:false,known:['march','warm-heel','wall-push','sit-hips']};
   const rows=[
     {id:'march',seconds:5,rest:0},{id:'warm-heel',seconds:5,rest:2},
@@ -263,4 +266,39 @@ test('heel digs alternate with only the forward heel touching and its toes eleva
     assert.ok(lift[side+'f'][1]<heelDigFloor-15);
     assert.deepEqual(lift[side+'f'],returning[side+'f']);
   }
+});
+
+test('the foot guides distinguish sole, heel and toe contact on the floor and the step', async () => {
+  globalThis.matchMedia=()=>({matches:false});
+  globalThis.requestAnimationFrame=()=>{};
+  const {footContacts}=await import('../media.js?v=12');
+  const contacts=(pose)=>footContacts(pose,diagramFloor).map(({kind})=>kind);
+  for (const [id,expected] of [
+    ['toe-raise',['heel','heel']], ['calf',['toe','toe']], ['sit-ankles',['heel','heel']],
+    ['heel-slide',['sole','heel']], ['bridge',['sole','sole']], ['band-open',['sole','sole']],
+    ['calf-stretch',['sole','sole']], ['free-calf',['sole','sole']], ['warrior-one',['sole','sole']],
+    ['wall-slide',['sole','sole']], ['straight-raise',['sole']], ['sit-ham',['heel','sole']],
+    ['sit-march',['sole']], ['back-ham',['sole']], ['fallout',['sole','heel']]
+  ]) {
+    const exercise=exercises[id];
+    assert.deepEqual(contacts(frames(exercise).at(-1)),expected,id);
+    for (const [index] of footGuides[exercise.motion].buttons ?? []) assert.ok(frames(exercise)[index],id);
+  }
+  const [start,,placed,,both]=frames(exercises['step-up']);
+  for (const [pose,surfaces] of [[start,[202,202]],[placed,[179,202]],[both,[179,179]]]) {
+    const contact=footContacts(pose,stepLayout.floor,stepLayout);
+    assert.deepEqual(contact.map(({y})=>y),surfaces);
+    assert.ok(contact.every(({kind})=>kind==='sole'));
+  }
+  const [neutral,liftRight,right,,center,liftLeft,left,,end]=frames(exercises.toe);
+  assert.deepEqual(center,neutral);
+  assert.deepEqual(end,neutral);
+  assert.deepEqual(contacts(liftRight),['sole']);
+  assert.deepEqual(contacts(liftLeft),['sole']);
+  assert.deepEqual(contacts(right),['sole','toe']);
+  assert.deepEqual(contacts(left),['toe','sole']);
+  const [bent,extended]=frames(exercises['heel-slide']);
+  assert.equal(bent.rf[1],extended.rf[1]);
+  assert.ok(extended.rf[0]>bent.rf[0]);
+  assert.deepEqual(bent.lf,extended.lf);
 });

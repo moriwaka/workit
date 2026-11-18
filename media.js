@@ -1,4 +1,4 @@
-import {frames, seatedDiagrams, stepLayout, stepStages, heelDigFloor} from './catalog.js?v=11';
+import {frames, seatedDiagrams, stepLayout, stepStages, heelDigFloor, diagramFloor, footGuides} from './catalog.js?v=12';
 
 const pink = '#ed865f';
 const purple = '#523290';
@@ -43,6 +43,65 @@ function footMarkers(ctx, heel, toe) {
   ctx.fill();
 }
 
+export function footContacts(points, floor, platform) {
+  return [['lf','lt'],['rf','rt']].flatMap(([heelKey,toeKey]) => {
+    const surface = ([x,y]) => {
+      if (platform && x>=platform.left && x<=platform.right) {
+        return Math.abs(y-(platform.top-3))<=.5 ? platform.top : null;
+      }
+      return Math.abs(y-(floor-3))<=.5 ? floor : null;
+    };
+    const [heel,toe] = [points[heelKey],points[toeKey]];
+    const [heelSurface,toeSurface] = [surface(heel),surface(toe)];
+    if (heelSurface!==null && heelSurface===toeSurface) {
+      return [{kind:'sole',x1:heel[0],x2:toe[0],y:heelSurface}];
+    }
+    return [[heel,heelSurface,'heel'],[toe,toeSurface,'toe']]
+      .filter(([,y])=>y!==null).map(([[x],y,kind])=>({kind,x1:x-5,x2:x+5,y}));
+  });
+}
+
+function drawFootContacts(ctx, points, floor, platform) {
+  for (const {x1,x2,y} of footContacts(points,floor,platform)) {
+    line(ctx,[[x1,y],[x2,y]],heelColor,2.6);
+  }
+}
+
+function movementArrows(ctx, guide, points, start, moving) {
+  if (!moving) return;
+  for (const key of guide.arrows ?? []) {
+    const [x,y] = points[key];
+    const [startX,startY] = start[key];
+    if (Math.hypot(x-startX,y-startY)<4) continue;
+    if (Math.abs(y-startY)<2) {
+      const sign = Math.sign(x-startX);
+      arrow(ctx,[[x-sign*21,215],[x+sign*4,215]]);
+    } else {
+      const arrowX = x + (key.endsWith('f') ? -10 : 11);
+      arrow(ctx,[[arrowX,startY],[arrowX,y-5]]);
+    }
+  }
+}
+
+function warriorAlignment(ctx) {
+  ctx.fillStyle='#fff';
+  ctx.fillRect(8,24,91,103);
+  ctx.fillStyle=ink;
+  ctx.font='600 10px system-ui, sans-serif';
+  ctx.fillText('真上から見た足',16,39);
+  arrow(ctx,[[24,69],[24,50]]);
+  ctx.fillStyle=ink;
+  ctx.fillText('正面',34,57);
+  for (const [heel,toe,label,labelAt] of [
+    [[70,78],[70,61],'前足',[43,75]], [[65,111],[50,98],'後ろ足',[18,112]]
+  ]) {
+    line(ctx,[heel,toe],purple,7);
+    footMarkers(ctx,heel,toe);
+    ctx.fillStyle=ink;
+    ctx.fillText(label,...labelAt);
+  }
+}
+
 function heelDigContact(ctx, points) {
   // Only label a forward heel close to the floor with visibly elevated toes.
   const feet = [[points.lf,points.lt],[points.rf,points.rt]];
@@ -74,20 +133,20 @@ function arrow(ctx, points) {
   line(ctx,[tip(-1),end,tip(1)],'#ab431d',2.5);
 }
 
-function seatDetails(ctx, guide) {
+function seatDetails(ctx, guide, floor) {
   ctx.fillStyle='#d9ccec';
   ctx.beginPath();
   ctx.moveTo(65,185);
   ctx.lineTo(230,185);
-  ctx.lineTo(257,205);
-  ctx.lineTo(38,205);
+  ctx.lineTo(257,floor);
+  ctx.lineTo(38,floor);
   ctx.closePath();
   ctx.fill();
-  line(ctx,[[38,205],[257,205]],'#9c83be',2);
+  line(ctx,[[38,floor],[257,floor]],'#9c83be',2);
   ctx.font='600 11px system-ui, sans-serif';
   ctx.fillStyle=ink;
   ctx.fillText(guide.front ? '正面から' : '斜め横から',15,19);
-  ctx.fillText('床',261,203);
+  ctx.fillText('床',262,floor+3);
 }
 
 function stepPlatform(ctx) {
@@ -99,23 +158,24 @@ function stepPlatform(ctx) {
 
 function stepAlignment(ctx) {
   ctx.fillStyle='#fff';
-  ctx.fillRect(7,27,89,110);
+  ctx.fillRect(7,27,103,110);
   ctx.font='600 10px system-ui, sans-serif';
   ctx.fillStyle=ink;
   ctx.fillText('正面から見た膝',15,42);
   const legs = [{x:34,color:'#b8a8d7'},{x:67,color:'#ab431d'}];
   for (const {x,color} of legs) {
     line(ctx,[[x,61],[x,84],[x,111]],color,5);
-    line(ctx,[[x-5,116],[x+5,116]],color,7);
+    line(ctx,[[x,110],[x,120]],color,7);
     disk(ctx,[x,84],4,'#fff');
     disk(ctx,[x,84],2.6,color);
-    disk(ctx,[x,118],2.5,color);
+    footMarkers(ctx,[x,109],[x,120]);
   }
   ctx.fillStyle=ink;
-  ctx.fillText('膝とつま先は同じ向き',11,131);
+  ctx.fillText('膝とつま先は同じ向き',11,132);
 }
 
-function draw(canvas, exercise, first, last, ratio, stepIndex = 0) {
+function draw(canvas, first, last, ratio, stepIndex = 0) {
+  const {exercise,poses} = diagrams.get(canvas);
   const ctx = canvas.getContext('2d');
   ctx.setTransform(canvas.width/300,0,0,canvas.height/230,0,0);
   ctx.clearRect(0,0,300,230);
@@ -126,22 +186,30 @@ function draw(canvas, exercise, first, last, ratio, stepIndex = 0) {
   ctx.fillStyle = '#eee7fb';
   ctx.fill();
   const seated = seatedDiagrams[exercise.motion];
-  if (seated) seatDetails(ctx,seated);
-  else line(ctx,[[40,201],[263,201]],'#d7cae9',2);
-  if (exercise.gear.includes('wall') && ['push','calfStretch'].includes(exercise.motion)) {
+  const guide = footGuides[exercise.motion];
+  const step = exercise.motion==='step';
+  const floor = step ? stepLayout.floor : diagramFloor;
+  if (seated) seatDetails(ctx,seated,guide ? floor : 205);
+  else line(ctx,[[40,floor],[step ? stepLayout.right : 273,floor]],'#9c83be',2);
+  if (guide && !seated) {
+    ctx.fillStyle=ink;
+    ctx.font='600 11px system-ui, sans-serif';
+    ctx.fillText('床',275,floor+3);
+  }
+  if (exercise.gear.includes('wall') && ['push','calfStretch','calf'].includes(exercise.motion)) {
     line(ctx,[[245,53],[245,200]],'#a68dc4',4);
     for (let y=65;y<190;y+=12) line(ctx,[[246,y],[254,y-8]],'#d6c6ec',1.5);
   }
   if (['toeRaise','wallSlide'].includes(exercise.motion)) {
     line(ctx,[[111,44],[111,200]],'#a68dc4',4);
     for (let y=54;y<190;y+=12) line(ctx,[[110,y],[103,y-8]],'#d6c6ec',1.5);
-    if (exercise.motion==='toeRaise' && ratio>.08) arrow(ctx,[[201,199],[200,180]]);
   }
-  const step = exercise.motion==='step';
+  if (exercise.motion==='side') line(ctx,[[88,53],[88,floor]],'#a68dc4',4);
   if (step) stepPlatform(ctx);
   const p = Object.fromEntries(Object.keys(first).map(key => [key,pointBetween(first[key],last[key],ratio)]));
   const farSide = seated?.front ? purple : far;
-  const shoeWidth = step || seated || exercise.motion==='heelDig' ? 6 : 5;
+  const shoeWidth = exercise.motion==='sitHip' ? 10 : guide || seated || exercise.motion==='heelDig' ? 6 : 5;
+  if (guide) drawFootContacts(ctx,p,floor,step ? stepLayout : null);
   line(ctx,[p.hip,p.rk,p.rf],farSide,9);
   line(ctx,[p.rs,p.re,p.rh],farSide);
   line(ctx,[p.rf,p.rt],farSide,shoeWidth);
@@ -155,6 +223,8 @@ function draw(canvas, exercise, first, last, ratio, stepIndex = 0) {
   line(ctx,[p.lf,p.lt],step ? '#ab431d' : purple,shoeWidth);
   footMarkers(ctx,p.lf,p.lt);
   if (exercise.motion==='heelDig') heelDigContact(ctx,p);
+  if (guide?.arrows) movementArrows(ctx,guide,p,poses[0],ratio>.08);
+  if (exercise.motion==='warrior') warriorAlignment(ctx);
   disk(ctx,p.head,13,seated ? '#bfa7dd' : pink);
   disk(ctx,[p.head[0]+(seated?.front ? -4 : 5),p.head[1]-2],1.6,ink);
   if (seated?.front) disk(ctx,[p.head[0]+4,p.head[1]-2],1.6,ink);
@@ -179,7 +249,7 @@ function draw(canvas, exercise, first, last, ratio, stepIndex = 0) {
 export function attachDiagram(canvas, exercise) {
   const poses = frames(exercise);
   diagrams.set(canvas,{exercise,poses,started:performance.now(),paused:reducedMotion.matches});
-  draw(canvas,exercise,poses[0],poses[0],0);
+  draw(canvas,poses[0],poses[0],0);
 }
 
 export function setDiagramFrame(canvas, frame) {
@@ -188,7 +258,7 @@ export function setDiagramFrame(canvas, frame) {
   state.started = performance.now();
   const last = state.poses.length-1;
   const index = frame === 'end' ? (last===4 ? 1 : last) : frame.startsWith('pose-') ? Number(frame.slice(5)) : 0;
-  draw(canvas,state.exercise,state.poses[index],state.poses[index],index ? 1 : 0,index);
+  draw(canvas,state.poses[index],state.poses[index],index ? 1 : 0,index);
 }
 
 function drawSequence(canvas,state,elapsed) {
@@ -198,7 +268,7 @@ function drawSequence(canvas,state,elapsed) {
   const next = (stage+1) % state.poses.length;
   const ratio = Math.max(0,Math.min(1,(step-stage-.24)/.63));
   const smooth = ratio * ratio * (3-2*ratio);
-  draw(canvas,state.exercise,state.poses[stage],state.poses[next],smooth,ratio<.5 ? stage : next);
+  draw(canvas,state.poses[stage],state.poses[next],smooth,ratio<.5 ? stage : next);
 }
 
 function animate(now) {
@@ -214,14 +284,14 @@ function animate(now) {
     const [first,last] = state.poses;
     if (state.exercise.held) {
       const ratio = Math.max(0,Math.min(1,(elapsed-.7)/1.4));
-      draw(canvas,state.exercise,first,last,ratio);
+      draw(canvas,first,last,ratio);
       if (ratio===1) state.paused = true;
       continue;
     }
     const phase = (elapsed % cycle) / cycle;
     const posed = Math.max(0,Math.min(1,(phase % .5 - .08) / .34));
     const eased = posed * posed * (3 - 2 * posed);
-    draw(canvas,state.exercise,first,last,phase < .5 ? eased : 1 - eased);
+    draw(canvas,first,last,phase < .5 ? eased : 1 - eased);
   }
   requestAnimationFrame(animate);
 }

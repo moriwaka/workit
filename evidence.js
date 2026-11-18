@@ -3,6 +3,9 @@ export const references = {
   aha: ['American Heart Association「Warm Up, Cool Down」','https://www.heart.org/en/healthy-living/exercise-and-physical-activity/fitness-basics/warm-up-cool-down'],
   cdc: ['CDC「Measuring Physical Activity Intensity」','https://www.cdc.gov/physical-activity-basics/measuring/index.html'],
   nhsWarm: ['NHS「How to warm up before exercising」','https://www.nhs.uk/live-well/exercise/how-to-warm-up-before-exercising/'],
+  nhsAnkle: ['NHS inform「Exercises for calf and ankle problems」','https://www.nhsinform.scot/illnesses-and-conditions/muscle-bone-and-joints/leg-and-foot-problems-and-conditions/exercises-for-calf-and-ankle-problems/'],
+  nhsLegs: ['Worcestershire Acute Hospitals NHS「Lower Limb Strengthening Exercises」','https://www.worcsacute.nhs.uk/leaflets/lower-limb-strengthening-exercises/'],
+  warriorFooting: ['Yoga Journal「Find Your Footing in Warrior I」','https://www.yogajournal.com/practice/beginners/how-to/happy-feet/'],
   nhsStrength: ['NHS「Strength exercises」','https://www.nhs.uk/live-well/exercise/strength-exercises/'],
   nhsCool: ['NHS「Cool-down video」','https://www.nhs.uk/live-well/exercise/strength-and-resistance/body-blast-cool-down/'],
   nhsStretch: ['NHS「How to stretch after exercising」','https://www.nhs.uk/live-well/exercise/how-to-stretch-after-exercising/'],
@@ -59,17 +62,17 @@ export const evidence = {
   march: {name:'March on the spot', target:'股関節・太もも・ふくらはぎ', refs:['nhsWarm','cdc']},
   'slow-march': {name:'March on the spot',target:'股関節・太もも・ふくらはぎ',refs:['nhsWarm','aha']},
   toe: {name:'Side toe tap', target:'股関節・ふくらはぎ', refs:['aha'], variant:true},
-  'sit-ankles': {name:'Ankle pumps', target:'足首・ふくらはぎ', refs:['longAnkles','ankleMedia'], demo:'longAnkles', variant:true},
+  'sit-ankles': {name:'Ankle pumps', target:'足首・ふくらはぎ', refs:['longAnkles','ankleMedia','nhsAnkle'], demo:'longAnkles', variant:true},
   'sit-breathe': {target:'呼吸を整える', refs:['floorBreath'], variant:true},
-  'heel-slide': {name:'Heel slide', target:'膝・股関節を動かす', refs:['floor'], variant:true},
+  'heel-slide': {name:'Heel slide', target:'膝・股関節を動かす', refs:['floor','nhsLegs'], variant:true},
   'back-breathe': {target:'呼吸を整える', refs:['floorBreath','breathing'], variant:true},
   'rock-warm': {name:'Quadruped rock-back', target:'股関節を動かす。腕と膝で支える', refs:['rock'], variant:true},
   'rock-cool': {name:'Quadruped rock-back', target:'股関節を動かす。腕と膝で支える', refs:['rock'], variant:true},
   'kneel-warm': {target:'股関節・体幹で姿勢を支える', refs:['aha'], variant:true},
   'kneel-cool': {target:'呼吸を整える。膝と股関節で姿勢を支える', refs:['breathing'], variant:true},
   squat: {name:'Mini-squat / Bodyweight squat',target:'太もも前（大腿四頭筋）・お尻（大殿筋）',refs:['nhsStrength','ace']},
-  calf: {name:'Calf raise / Heel raise',target:'ふくらはぎ（腓腹筋・ヒラメ筋）',refs:['wallCalf','ace'],demo:'wallCalf',variant:true},
-  'leg-out': {name:'Standing hip abduction / Sideways leg lift',target:'お尻の横（中殿筋などの股関節外転筋）',refs:['nhsStrength','hipAbduction'],variant:true},
+  calf: {name:'Calf raise / Heel raise',target:'ふくらはぎ（腓腹筋・ヒラメ筋）',refs:['wallCalf','nhsAnkle'],demo:'wallCalf',variant:true},
+  'leg-out': {name:'Standing hip abduction / Sideways leg lift',target:'お尻の横（中殿筋などの股関節外転筋）',refs:['nhsLegs','hipAbduction'],variant:true},
   'wall-push': {name:'Wall press-up / Wall push-up',target:'胸（大胸筋）・二の腕の裏（上腕三頭筋）・肩の前',refs:['nhsStrength','ace']},
   'step-up': {name:'Step-up',target:'太もも前（大腿四頭筋）・太もも裏（ハムストリングス）・お尻',refs:['step','stepKnee','stepLower'],demo:'step'},
   'calf-stretch': {name:'Standing calf stretch',target:'ふくらはぎ（膝を伸ばした側の腓腹筋が中心）',refs:['wallStretch','nhsStretch'],demo:'wallStretch',variant:true},
@@ -123,6 +126,8 @@ const supplementalExercises = {
 for (const [id,[key,name,target]] of Object.entries(supplementalExercises)) {
   evidence[id] = {name,target,refs:[key],demo:key};
 }
+
+evidence['warrior-one'].refs.push('warriorFooting');
 
 const stageSources = {
   'warm-sit-wrist':['sit-wrist','wristNhs'], 'warm-side-clam':['side-clam','clamNhs'],
