@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {catalog, exercises, poses, purposes} from '../catalog.js?v=2';
-import {evidence, intensity, references} from '../evidence.js?v=2';
-import {allowed, alternatives, defaultSettings, estimate, floorChanges, fullSequence, generate} from '../planner.js?v=2';
+import {catalog, exercises, poses, purposes} from '../catalog.js?v=3';
+import {evidence, intensity, references} from '../evidence.js?v=3';
+import {allowed, alternatives, defaultSettings, estimate, floorChanges, fullSequence, generate} from '../planner.js?v=3';
 
 const defaultOptions = {purpose:'stretch', minutes:15, poses:Object.keys(poses)};
 

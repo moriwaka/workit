@@ -1,8 +1,8 @@
-import {poses, gear, zones, purposes, phases, levels, exercises} from './catalog.js?v=2';
-import {defaultSettings, ratingLabels, statusLabels, generate, estimate, alternatives, allowed, fullSequence, floorChanges, validate, repSeconds} from './planner.js?v=2';
-import {attachDiagram, toggleDiagram, announce, voiceAvailable, silence, unlockSound} from './media.js?v=2';
-import {Guide} from './guide.js?v=2';
-import {evidence, intensity, references} from './evidence.js?v=2';
+import {poses, gear, zones, purposes, phases, levels, exercises, seatedDiagrams} from './catalog.js?v=3';
+import {defaultSettings, ratingLabels, statusLabels, generate, estimate, alternatives, allowed, fullSequence, floorChanges, validate, repSeconds} from './planner.js?v=3';
+import {attachDiagram, setDiagramFrame, announce, voiceAvailable, silence, unlockSound} from './media.js?v=3';
+import {Guide} from './guide.js?v=3';
+import {evidence, intensity, references} from './evidence.js?v=3';
 
 const app = document.querySelector('#app');
 const dialog = document.querySelector('#dialog');
@@ -59,17 +59,23 @@ function confirmDialog(title, message, action, value='', label='確定') {
 }
 
 function diagram(item) {
-  return `<div class="diagram"><canvas width="600" height="460" data-diagram="${item.id}" role="img" aria-label="${escape(item.name)}の動作図">${escape(item.name)}</canvas>
-    ${item.still ? '' : button(matchMedia('(prefers-reduced-motion: reduce)').matches ? 'アニメを再生' : '静止図に切り替え','diagram','small')}</div>`;
+  const guide = seatedDiagrams[item.motion];
+  const initial = item.still || matchMedia('(prefers-reduced-motion: reduce)').matches ? 'start' : 'play';
+  return `<figure class="diagram">
+    <canvas width="600" height="460" data-diagram="${item.id}" role="img" aria-label="${escape(item.name)}の動作図">${escape(item.name)}</canvas>
+    ${item.still ? '' : `<div class="diagram-controls" role="group" aria-label="動作図の表示">
+      ${[['start','開始姿勢'],['end','動かした後'],['play','アニメ']].map(([mode,label]) => button(label,'diagram','small',mode,`aria-pressed="${mode===initial}"`)).join('')}</div>`}
+    ${guide ? `<figcaption>${guide.labels.map((label,index) => `<span>${guide.labels.length>1 ? (index===0 ? '<strong>開始</strong> ' : '<strong>動き</strong> ') : ''}${escape(label)}</span>`).join('')}</figcaption>` : ''}
+    </figure>`;
 }
 
 function initDiagrams(container = document) {
   container.querySelectorAll('canvas[data-diagram]').forEach(node => attachDiagram(node, exercises[node.dataset.diagram]));
 }
 
-function sourceLink(key) {
+function sourceLink(key, text) {
   const [label,url] = references[key];
-  return `<a href="${url}" target="_blank" rel="noopener noreferrer">${escape(label)}</a>`;
+  return `<a href="${url}" target="_blank" rel="noopener noreferrer">${escape(text ?? label)}</a>`;
 }
 
 function description(item) {
@@ -79,6 +85,7 @@ function description(item) {
     <p class="subtle"><strong>主に使う・伸ばす部位</strong>　${escape(entry.target)}</p>
     <p class="subtle"><strong>強度の目安</strong>　${escape(intensity[item.type])}</p>
     <p class="alert">${escape(item.cue)}</p>
+    ${entry.demo ? `<p class="demo-reference">${sourceLink(entry.demo,'参考イラストを開く（外部サイト）')}</p>` : ''}
     <details class="move-sources"><summary>種目名・参考資料</summary>
       ${entry.name ? `<p class="subtle">${escape(entry.name)}</p>` : ''}
       ${entry.variant ? '<p class="subtle">資料を参考に、姿勢・道具・ペースを調整した動きです。</p>' : ''}
@@ -472,8 +479,10 @@ document.addEventListener('click',event => {
       break;
     }
     case 'diagram': {
-      const canvas = target.closest('.diagram').querySelector('canvas');
-      target.textContent = toggleDiagram(canvas) ? 'アニメを再生' : '静止図に切り替え';
+      const figure = target.closest('.diagram');
+      setDiagramFrame(figure.querySelector('canvas'),value);
+      figure.querySelectorAll('[data-action=diagram]').forEach(control =>
+        control.setAttribute('aria-pressed',String(control === target)));
       break;
     }
     case 'replace': replaceDialog(Number(value)); break;

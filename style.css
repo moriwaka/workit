@@ -84,9 +84,13 @@ progress::-webkit-progress-bar { background:var(--line) }
 progress::-webkit-progress-value { background:var(--purple) }
 progress::-moz-progress-bar { background:var(--purple) }
 .guide-grid { display:grid; grid-template-columns:minmax(0,1.14fr) minmax(300px,1fr); gap:20px; align-items:start }
-.diagram { position:relative; min-width:0; border-radius:18px; background:#f7f3ff; border:1px solid #ede3fb; overflow:hidden }
+.diagram { margin:0; min-width:0; border-radius:18px; background:#f7f3ff; border:1px solid #ede3fb; overflow:hidden }
 .diagram canvas { width:100%; display:block; aspect-ratio:300/230; max-height:460px; object-fit:contain }
-.diagram button { position:absolute; bottom:10px; right:10px }
+.diagram-controls { display:flex; flex-wrap:wrap; justify-content:center; gap:6px; padding:7px 10px 10px }
+.diagram-controls button[aria-pressed=true] { background:var(--purple); color:white; border-color:var(--purple) }
+.diagram figcaption { display:flex; flex-wrap:wrap; justify-content:center; gap:4px 18px; padding:8px 12px 12px; color:var(--ink); font-size:.82rem }
+.diagram figcaption span { line-height:1.5 }
+.diagram figcaption strong { color:var(--purple); margin-right:4px }
 .guide-copy h2 { font-size:clamp(1.3rem,2.5vw,2.15rem); line-height:1.25; margin:6px 0 }
 .guide-copy ol { margin:12px 0; padding-left:1.4rem; line-height:1.6 }
 .guide-copy li + li { margin-top:4px }
@@ -113,3 +117,5 @@ dialog .stack { gap:9px }
 
 .move-sources { margin-top:10px; font-size:.85rem }
 .guide-copy .alert { margin-top:8px }
+
+.demo-reference { margin-top:8px; font-size:.85rem }

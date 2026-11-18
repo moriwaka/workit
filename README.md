@@ -24,3 +24,5 @@ GitHub のリポジトリ設定で **Pages → Deploy from a branch → main →
 - [American Heart Association「Warm Up, Cool Down」](https://www.heart.org/en/healthy-living/exercise-and-physical-activity/fitness-basics/warm-up-cool-down)
 - [NHS「Strength exercises」](https://www.nhs.uk/live-well/exercise/strength-exercises/)
 - [厚生労働省「筋力トレーニングについて」](https://kennet.mhlw.go.jp/information/information/exercise/s-00-005.html)
+
+座位の動作図は、たとえば [University of Iowa の床で行うストレッチの図](https://chtc.sites.uiowa.edu/lower-body-stretches) を参考にしています。参考図のある種目では、種目画面から元のページを開けます。

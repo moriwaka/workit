@@ -1,4 +1,4 @@
-import {catalog, exercises, poses, gear, zones, purposes} from './catalog.js?v=2';
+import {catalog, exercises, poses, gear, zones, purposes} from './catalog.js?v=3';
 
 export const defaultSettings = {
   gear: ['wall'], blocked: [], excluded: [], level: 0, voice: true, volume: 75, known: [], adjustments: {}

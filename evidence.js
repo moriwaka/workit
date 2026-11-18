@@ -15,6 +15,10 @@ export const references = {
   knees: ['Gateshead Health NHS「Lower Limb Non-Weight Bearing and Stair Technique」','https://www.gatesheadhealth.nhs.uk/resources/lower-limb-non-weight-bearing-and-stair-technique/'],
   floor: ['Worcestershire Acute Hospitals NHS「Self-directed rehabilitation and information pack」','https://www.worcsacute.nhs.uk/documents/documents/patient-information-leaflets-a-z/self-directed-rehabilitation-and-information-pack/?layout=file'],
   rock: ['Summit Orthopedics「Hip Arthroscopy Rehabilitation」','https://www.summitortho.com/wp-content/uploads/2014/11/All-Phases_Hip-Arthroscopy-Rehabilitation_with-PT-notes_11-14.pdf'],
+  iowa: ['University of Iowa「Lower Body Stretches」','https://chtc.sites.uiowa.edu/lower-body-stretches'],
+  aceButterfly: ['ACE「Seated Butterfly Stretch」','https://www.acefitness.org/resources/everyone/exercise-library/216/seated-butterfly-stretch/'],
+  ankleMedia: ['Providence「Ankle Pumps / Quadriceps Sets」（PDF）','https://www.providence.org/-/media/project/psjh/shared/files/tjr-resources/osm-knee-handbook.pdf'],
+  chairMarch: ['Cambridge University Hospitals「Marching legs while sitting」','https://www.cuh.nhs.uk/patient-information/home-exercise-programme/'],
   breathing: ['NHS「Breathing exercises for stress」','https://www.nhs.uk/mental-health/self-help/guides-tools-and-activities/breathing-exercises-for-stress/']
 };
 
@@ -23,7 +27,7 @@ export const references = {
 export const evidence = {
   march: {name:'March on the spot', target:'股関節・太もも・ふくらはぎ', refs:['nhsWarm','cdc']},
   toe: {name:'Side toe tap', target:'股関節・ふくらはぎ', refs:['aha'], variant:true},
-  'sit-ankles': {name:'Ankle pumps', target:'足首・ふくらはぎ', refs:['knees'], variant:true},
+  'sit-ankles': {name:'Ankle pumps', target:'足首・ふくらはぎ', refs:['ankleMedia'], demo:'ankleMedia', variant:true},
   'sit-breathe': {target:'呼吸を整える', refs:['breathing'], variant:true},
   'heel-slide': {name:'Heel slide', target:'膝・股関節を動かす', refs:['floor'], variant:true},
   'back-breathe': {target:'呼吸を整える', refs:['breathing'], variant:true},
@@ -38,10 +42,10 @@ export const evidence = {
   'step-up': {name:'Step-up',target:'太もも前（大腿四頭筋）・太もも裏（ハムストリングス）・お尻',refs:['step']},
   'calf-stretch': {name:'Standing calf stretch',target:'ふくらはぎ（膝を伸ばした側の腓腹筋が中心）',refs:['nhsStretch'],variant:true},
   'side-bend': {name:'Standing side bend',target:'体側（傾けた側と反対のお腹・腰の横）',refs:['spine']},
-  'sit-press': {name:'Quad set / Static quadriceps',target:'太もも前（大腿四頭筋）',refs:['knees'],variant:true},
-  'sit-march': {name:'Seated march / Seated hip flexion',target:'股関節の前（股関節屈筋群）と姿勢を保つ体幹',refs:['core'],variant:true},
-  'sit-ham': {name:'Seated hamstring stretch',target:'太もも裏（ハムストリングス）',refs:['nhsStretch'],variant:true},
-  'sit-hips': {name:'Butterfly stretch',target:'内もも（股関節内転筋群）',refs:['hips']},
+  'sit-press': {name:'Quad set / Static quadriceps',target:'太もも前（大腿四頭筋）',refs:['knees','ankleMedia'],demo:'ankleMedia',variant:true},
+  'sit-march': {name:'Seated march / Seated hip flexion',target:'股関節の前（股関節屈筋群）と姿勢を保つ体幹',refs:['chairMarch'],variant:true},
+  'sit-ham': {name:'Seated hamstring stretch',target:'太もも裏（ハムストリングス）',refs:['iowa'],demo:'iowa',variant:true},
+  'sit-hips': {name:'Butterfly stretch',target:'内もも（股関節内転筋群）',refs:['iowa','aceButterfly','hips'],demo:'iowa'},
   'sit-turn': {name:'Seated trunk rotation',target:'体幹（腹斜筋など）・背中',refs:['spine'],variant:true},
   bridge: {name:'Glute bridge',target:'お尻（大殿筋）、太もも裏（ハムストリングス）',refs:['hip','core']},
   'band-open': {name:'Supine banded hip abduction',target:'お尻の横（股関節外転筋群）',refs:['hipAbduction'],variant:true},

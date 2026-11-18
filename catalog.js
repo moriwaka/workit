@@ -11,7 +11,13 @@ export const levels = ['入門', '軽め', '標準'];
 // Corrections to the starting and ending joint positions for each movement.
 // The near side is highlighted. Bilateral instructions are in each exercise.
 const standing = { head:[151,39], neck:[151,60], hip:[151,123], ls:[140,66], rs:[162,66], le:[135,96], re:[168,96], lh:[136,119], rh:[169,119], lk:[139,158], rk:[164,158], lf:[138,197], rf:[166,197] };
-const sitting = { head:[136,67], neck:[136,86], hip:[137,158], ls:[124,93], rs:[147,93], le:[117,126], re:[163,124], lh:[115,154], rh:[174,148], lk:[166,178], rk:[200,173], lf:[194,195], rf:[223,195] };
+const sitting = {head:[105,63],neck:[107,83],hip:[105,183],ls:[100,91],rs:[119,90],
+  le:[94,127],re:[129,126],lh:[110,151],rh:[147,153],lk:[150,184],rk:[156,175],lf:[216,194],rf:[217,184],
+  lt:[239,185],rt:[237,176]};
+const seatedFront = {...sitting, head:[150,62],neck:[150,83],hip:[150,181],
+  ls:[132,90],rs:[168,90],le:[121,123],re:[179,123],lh:[128,157],rh:[172,157],
+  lk:[108,166],rk:[192,166],lf:[141,193],rf:[159,193],lt:[150,192],rt:[150,192]};
+const oneLegBent = {rk:[159,136],rf:[175,185],rt:[196,186],rh:[156,144]};
 const supine = { head:[67,181], neck:[86,185], hip:[157,186], ls:[89,189], rs:[99,179], le:[117,194], re:[123,182], lh:[142,195], rh:[148,182], lk:[185,143], rk:[192,135], lf:[215,197], rf:[220,190] };
 const all4 = { head:[211,105], neck:[195,121], hip:[124,125], ls:[193,128], rs:[183,122], le:[194,160], re:[181,149], lh:[194,196], rh:[181,188], lk:[124,193], rk:[110,184], lf:[89,196], rf:[79,188] };
 const kneel = { head:[150,62], neck:[150,81], hip:[151,130], ls:[139,87], rs:[160,87], le:[136,111], re:[164,111], lh:[137,131], rh:[166,130], lk:[143,192], rk:[162,187], lf:[101,196], rf:[121,190] };
@@ -26,13 +32,18 @@ const motions = {
   step: [{rk:[185,142],rf:[205,173]}, {head:[191,16],neck:[191,36],ls:[178,43],rs:[201,44],le:[175,70],re:[205,69],lh:[176,95],rh:[204,92],hip:[193,98],lk:[202,136],rk:[212,136],lf:[205,173],rf:[222,173]}],
   calfStretch: [{lh:[237,97],rh:[241,105],le:[191,111],re:[201,114],lk:[126,157],lf:[106,197],rk:[179,162],rf:[180,197]}, {head:[174,39],neck:[167,60],rs:[180,68],ls:[159,66],lh:[237,97],rh:[241,105],le:[205,99],re:[212,107],hip:[154,125],lk:[126,158],lf:[106,197],rk:[194,161],rf:[180,197]}],
   reach: [{}, {head:[133,44],neck:[138,64],ls:[127,70],rs:[149,68],le:[126,94],re:[152,94],lh:[127,116],rh:[156,117]}],
-  sitPress: [{rk:[185,185],rf:[235,196]}, {rk:[185,192],rf:[235,196]}],
-  sitMarch: [{}, {rk:[211,151],rf:[226,175]}],
+  sitPress: [{...oneLegBent,lk:[157,183]}, {...oneLegBent,lk:[157,193]}],
+  sitMarch: [{lk:[158,139],lf:[190,194],lt:[211,195],rk:[149,130],rf:[169,185],rt:[189,186]},
+    {lk:[158,123],lf:[190,178],lt:[211,179],rk:[149,130],rf:[169,185],rt:[189,186]}],
   pelvic: [{}, {hip:[157,179],lk:[183,142],rk:[190,134]}],
-  sitAnkle: [{}, {rf:[223,186],lf:[194,190]}],
-  sitTurn: [{}, {head:[127,68],neck:[133,86],ls:[120,96],rs:[140,89],le:[110,124],re:[148,117],lh:[111,151],rh:[153,148]}],
-  sitHam: [{rk:[187,192],rf:[240,196]}, {rk:[187,192],rf:[240,196],head:[159,79],neck:[149,94],ls:[137,101],rs:[160,100],le:[147,128],re:[176,129],lh:[168,151],rh:[189,150]}],
-  sitHip: [{lk:[157,179],rk:[180,175],lf:[199,194],rf:[198,188]}, {lk:[154,187],rk:[179,181],lf:[199,194],rf:[198,188]}],
+  sitAnkle: [{lt:[240,193],rt:[238,183]}, {lt:[216,168],rt:[217,159]}],
+  sitTurn: [seatedFront,{...seatedFront,head:[156,61],neck:[154,82],ls:[144,92],rs:[178,84],
+    le:[131,125],re:[182,121],lh:[128,155],rh:[171,157]}],
+  sitBreathe: [seatedFront,seatedFront],
+  sitHam: [{...oneLegBent,lk:[160,190],lh:[145,162]},
+    {...oneLegBent,lk:[160,190],head:[141,77],neck:[132,94],ls:[123,101],rs:[142,95],
+    le:[127,135],re:[151,124],lh:[151,163],rh:[159,143]}],
+  sitHip: [seatedFront,{...seatedFront,lk:[101,183],rk:[199,183]}],
   breatheBack: [{}, {neck:[86,182],rs:[99,175],re:[123,178],rh:[148,179]}],
   slide: [{}, {rk:[211,178],rf:[256,192]}],
   bridge: [{}, {hip:[157,153],ls:[89,187],rs:[99,177],lk:[185,138],rk:[193,133]}],
@@ -47,6 +58,23 @@ export function frames(exercise) {
   return motions[exercise.motion].map(points => ({ ...bases[exercise.pose], ...points }));
 }
 
+// Arrows and captions describe one change between the two illustrated poses.
+export const seatedDiagrams = {
+  sitAnkle:{labels:['かかとを床につける','つま先を手前へ'], highlights:['lt','rt'],
+    arrows:[[[247,191],[241,178],[226,167]]]},
+  sitPress:{labels:['片脚を前に伸ばす','膝の裏を床へ軽く押す'], highlights:['lk'],
+    arrows:[[[157,150],[157,174]]]},
+  sitMarch:{labels:['両足を床に置く','手前の膝と足を少し浮かせる'], highlights:['lk','lf','lt'],
+    arrows:[[[225,189],[225,162]]]},
+  sitHam:{labels:['片脚を伸ばし、反対の膝を曲げる','伸ばした脚に向け、股関節から少し前へ'],
+    highlights:['neck','head'], arrows:[[[105,31],[128,32],[152,48]]]},
+  sitHip:{labels:['足裏を合わせる','膝を左右に自然に開く'], highlights:['lk','rk'],
+    arrows:[[[97,150],[85,178]],[[203,150],[215,178]]], front:true},
+  sitTurn:{labels:['正面を向く','骨盤を止めて胸を片側へ'], highlights:['ls','rs'],
+    arrows:[[[117,111],[132,121],[156,123],[177,114]]], front:true},
+  sitBreathe:{labels:['床に座り、肩の力を抜く'], highlights:[], arrows:[], front:true}
+};
+
 function exercise(id, name, pose, motion, type, load, steps, cue, extra = {}) {
   return { id, name, pose, motion, type, load, steps, cue, gear: [], level: 0, ...extra };
 }
@@ -55,7 +83,7 @@ export const catalog = [
   exercise('march','その場で足踏み','stand','march','warm',['hip','quad','calf'],['足を腰幅に開いて立つ。','左右の足を交互に少し上げる。話せる程度のペースで。'],'足元の物を片付け、歩幅は小さく。'),
   exercise('toe','左右に軽くつま先タッチ','stand','toe','cool',['hip','calf'],['足を腰幅に開いて立つ。','片足を横に軽く出して戻す。左右交互に、徐々にゆっくり。'],'足に体重を乗せず、軽く触れるだけ。'),
   exercise('sit-ankles','座って足首を動かす','sit','sitAnkle','warm',['calf'],['床に座り、脚を楽に前に出す。','かかとを床につけたまま、つま先を手前と向こうにゆっくり動かす。'],'姿勢を保ちにくければ飛ばす。'),
-  exercise('sit-breathe','座って呼吸を整える','sit','sitTurn','cool',[],['床に楽な姿勢で座る。','肩を脱力し、呼吸を止めず、ゆっくり吐く。'],'図の動きは小さくてよい。息が苦しければ中止。',{still:true}),
+  exercise('sit-breathe','座って呼吸を整える','sit','sitBreathe','cool',[],['床に楽な姿勢で座る。','肩を脱力し、呼吸を止めず、ゆっくり吐く。'],'図の動きは小さくてよい。息が苦しければ中止。',{still:true}),
   exercise('heel-slide','仰向けでかかとを滑らせる','back','slide','warm',['hip','quad','ham'],['仰向けで膝を立てる。','片脚のかかとを床に沿って滑らせ、戻す。左右交互に。'],'腰を反らさず、動きは小さく。'),
   exercise('back-breathe','仰向けで呼吸を整える','back','breatheBack','cool',[],['仰向けで膝を立て、足裏を床につける。','体の力を抜き、自然な呼吸に合わせてゆっくり吐く。'],'息を止めず、無理に深く吸わない。'),
   exercise('rock-warm','四つん這いで小さく体重移動','all4','rock','warm',['shoulder','core','hip','quad'],['手を肩の下、膝を腰の下に置く。','背中を保ち、お尻を少し後ろへ動かして戻る。'],'手首や膝に痛みがあれば飛ばす。'),
