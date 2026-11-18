@@ -35,11 +35,10 @@ const motions = {
   shoulderRoll: [{}, {ls:[140,59],rs:[162,59],le:[135,89],re:[168,89],lh:[136,112],rh:[169,112]}],
   kneeBend: [{lh:[184,74],rh:[201,76],le:[164,79],re:[179,81]}, {head:[154,48],neck:[154,69],hip:[146,133],ls:[143,74],rs:[165,74],lh:[184,82],rh:[201,84],le:[166,84],re:[180,85],lk:[135,163],rk:[172,163]}],
   toe: [{rk:[165,160],rf:[185,195]}, {lk:[128,157],lf:[108,195]}],
-  squat: [{}, {head:[153,58],neck:[153,79],ls:[141,85],rs:[166,85],le:[136,109],re:[168,108],lh:[144,119],rh:[159,119],hip:[151,145],lk:[125,167],rk:[178,167]}],
-  calf: [{}, {head:[151,29],neck:[151,50],ls:[140,56],rs:[162,56],le:[135,86],re:[168,86],lh:[136,109],rh:[169,109],hip:[151,113],lk:[139,148],rk:[164,148],lf:[146,189],rf:[174,189]}],
+  squat: [{lk:[138,158],rk:[166,158]}, {head:[153,58],neck:[153,79],ls:[141,85],rs:[166,85],le:[136,109],re:[168,108],lh:[144,119],rh:[159,119],hip:[151,145],lk:[138,172],rk:[166,172]}],
+  calf: [{lt:[151,198],rt:[179,198]}, {lt:[151,198],rt:[179,198],head:[151,29],neck:[151,50],ls:[140,56],rs:[162,56],le:[135,86],re:[168,86],lh:[136,109],rh:[169,109],hip:[151,113],lk:[139,148],rk:[164,148],lf:[146,189],rf:[174,189]}],
   side: [{}, {rk:[189,151],rf:[213,181]}],
   push: [{head:[191,48],neck:[184,66],ls:[193,71],rs:[174,70],le:[219,86],re:[208,87],lh:[241,98],rh:[240,103],hip:[162,119],lk:[148,157],rk:[157,152],lf:[133,196],rf:[144,191]}, {head:[221,47],neck:[211,65],ls:[215,76],rs:[202,71],le:[197,107],re:[190,101],lh:[241,98],rh:[240,103],hip:[183,119],lk:[157,157],rk:[165,153],lf:[133,196],rf:[144,191]}],
-  step: [{rk:[185,142],rf:[205,173]}, {head:[191,16],neck:[191,36],ls:[178,43],rs:[201,44],le:[175,70],re:[205,69],lh:[176,95],rh:[204,92],hip:[193,98],lk:[202,136],rk:[212,136],lf:[205,173],rf:[222,173]}],
   calfStretch: [{lh:[237,97],rh:[241,105],le:[191,111],re:[201,114],lk:[126,157],lf:[106,197],rk:[179,162],rf:[180,197]}, {head:[174,39],neck:[167,60],rs:[180,68],ls:[159,66],lh:[237,97],rh:[241,105],le:[205,99],re:[212,107],hip:[154,125],lk:[126,158],lf:[106,197],rk:[194,161],rf:[180,197]}],
   reach: [{}, {head:[133,44],neck:[138,64],ls:[127,70],rs:[149,68],le:[126,94],re:[152,94],lh:[127,116],rh:[156,117]}],
   sitPress: [{...oneLegBent,lk:[157,183]}, {...oneLegBent,lk:[157,193]}],
@@ -109,8 +108,58 @@ const motions = {
   kneelShift: [{}, {head:[167,62],neck:[164,81],hip:[157,130],ls:[153,87],rs:[174,87],le:[150,111],re:[178,111],lh:[151,131],rh:[180,130]}],
   kneelHinge: [{}, {head:[187,81],neck:[173,96],hip:[136,139],ls:[163,102],rs:[183,101],le:[151,122],re:[170,120],lh:[144,141],rh:[158,140]}]
 };
+// Side view of one ascent and descent. Foot anchors are at the heel; toe
+// points stay level and inside the platform whenever a foot is planted.
+export const stepLayout = {left:181,right:258,top:179,floor:202};
+const stepNeutral = {...standing,head:[128,44],neck:[125,64],hip:[121,124],
+  ls:[127,73],rs:[117,71],le:[131,98],re:[112,96],lh:[124,122],rh:[109,116],
+  lk:[123,161],rk:[112,156],lf:[118,199],lt:[141,199],rf:[105,199],rt:[127,199]};
+const leadOnStep = {lf:[203,176],lt:[227,176]};
+const rearOnStep = {rf:[218,176],rt:[242,176]};
+export const stepStages = [
+  {caption:'台の前で構える',button:'台の前',points:stepNeutral},
+  {caption:'先に出す足を持ち上げる',points:{...stepNeutral,
+    lk:[164,139],lf:[153,160],lt:[176,164]}},
+  {caption:'先に出す足の裏全体を台に置く',button:'片足を置く',points:{...stepNeutral,...leadOnStep,
+    head:[139,45],neck:[133,64],hip:[126,126],ls:[137,74],rs:[126,72],
+    le:[148,100],re:[115,99],lh:[151,119],rh:[115,116],lk:[194,145],rk:[113,158]}},
+  {caption:'台の足で体を持ち上げる',points:{...stepNeutral,...leadOnStep,
+    head:[198,35],neck:[188,55],hip:[178,112],ls:[194,64],rs:[181,62],
+    le:[201,91],re:[172,86],lh:[202,112],rh:[164,108],lk:[210,145],rk:[164,141],rf:[158,160],rt:[177,163]}},
+  {caption:'両足が台に乗る',button:'両足が台上',points:{...stepNeutral,...leadOnStep,...rearOnStep,
+    head:[221,21],neck:[217,42],hip:[213,101],ls:[224,52],rs:[209,49],
+    le:[223,78],re:[205,76],lh:[224,104],rh:[204,102],lk:[207,140],rk:[222,138]}},
+  {caption:'あとから上げた足を台から外す',points:{...stepNeutral,...leadOnStep,
+    head:[196,37],neck:[187,58],hip:[178,115],ls:[191,68],rs:[179,65],
+    lk:[209,143],rk:[164,143],rf:[153,160],rt:[176,164]}},
+  {caption:'あとから上げた足を先に下ろす',button:'片足を下ろす',points:{...stepNeutral,...leadOnStep,
+    head:[174,40],neck:[164,61],hip:[150,112],ls:[171,70],rs:[157,67],
+    le:[170,96],re:[151,94],lh:[174,115],rh:[146,112],lk:[199,145],rk:[147,153],rf:[137,199],rt:[158,199]}},
+  {caption:'台の足を外し、両足を床へ戻す',points:{...stepNeutral,
+    head:[145,45],neck:[139,65],hip:[133,123],ls:[145,73],rs:[135,72],
+    lk:[161,137],lf:[155,160],lt:[177,164],rk:[138,159],rf:[137,199],rt:[158,199]}}
+];
+
+const frontViewMoves = new Set(['squat','kneeBend','march','heelDig','toe','side','shoulderRoll',
+  'scapula','reach','mountain','standingStill','elbowBend','forearmTurn']);
+
+function footTip(points, side, exercise) {
+  const [x,y] = points[side+'f'];
+  if (['all4','kneel'].includes(exercise.pose)) return [x-11,y+1];
+  if (exercise.pose==='stand' && frontViewMoves.has(exercise.motion)) return [x,y+5];
+  if (exercise.motion==='warrior' && side==='l') return [x+7,y+4];
+  return [x+10,y+2];
+}
+
 export function frames(exercise) {
-  return motions[exercise.motion].map(points => ({ ...bases[exercise.pose], ...points }));
+  if (exercise.motion==='step') return stepStages.map(stage=>stage.points);
+  return motions[exercise.motion].map(delta => {
+    const points = {...bases[exercise.pose],...delta};
+    // Older exercise data may provide either foot endpoint independently.
+    points.lt ??= footTip(points,'l',exercise);
+    points.rt ??= footTip(points,'r',exercise);
+    return points;
+  });
 }
 
 // Arrows and captions describe one change between the two illustrated poses.
@@ -158,7 +207,7 @@ export const catalog = [
   exercise('calf','カーフレイズ（壁で支える）','stand','calf','strength',['calf'],['壁に指先を添え、足を腰幅に開く。','両かかとをゆっくり上げ、同じペースで下ろす。'],'手に体重をかけず、高く上げすぎない。',{gear:['wall']}),
   exercise('leg-out','立位の股関節外転（横脚上げ）','stand','side','strength',['hip','core'],['壁に手を軽く添え、背すじを伸ばす。','片脚を横に少し上げて下ろす。途中で反対側に替える。'],'つま先を正面に向け、上体を傾けない。',{gear:['wall'],sides:true}),
   exercise('wall-push','ウォールプッシュアップ（壁腕立て）','stand','push','strength',['shoulder','forearm','chest','core'],['壁から腕一本分ほど離れ、両手を胸の高さに置く。','体を一直線に保ち、肘を曲げて壁に近づき、押し戻す。'],'肩に痛みがあれば中止。息を止めない。',{gear:['wall']}),
-  exercise('step-up','ステップアップ（踏み台昇降）','stand','step','strength',['hip','quad','ham','calf'],['低く、滑らず、ぐらつかない踏み台の前に立つ。','片足の足裏全体を載せて両足で上がり、片足ずつ下りる。途中で先に出す足を替える。'],'踏み台の端を踏まず、急がない。',{gear:['step'],level:1,sides:true}),
+  exercise('step-up','ステップアップ（踏み台昇降）','stand','step','strength',['hip','quad','ham','calf'],['低く、滑らず、ぐらつかない踏み台の前に立つ。','先に出す足の裏全体を台に置き、その足で体を持ち上げて、もう片足を台に乗せる。','あとから上げた足を先に床へ下ろし、台に残った足を続けて下ろす。途中で先に出す足を替える。'],'膝とつま先を同じ方向に向ける。膝が内側に入る、ふらつく、痛むときは止める。',{gear:['step'],level:1,sides:true}),
   exercise('calf-stretch','壁を使うふくらはぎ伸ばし','stand','calfStretch','stretch',['calf'],['壁に手を添え、片足を後ろへ。','後ろ足のかかとを床につけたまま、前の膝を少し曲げる。'],'後ろ足のつま先を正面へ。反動をつけない。',{gear:['wall'],sides:true}),
   exercise('side-bend','立って体を横に傾ける','stand','reach','stretch',['core'],['足を腰幅に開き、腕を体の横に下ろす。','片手を太ももに沿わせ、体を少し横に傾ける。'],'前に倒れたり、腰をひねったりしない。',{sides:true}),
   exercise('sit-press','座って太ももの前に力を入れる','sit','sitPress','strength',['quad'],['床に座り、片脚を前に伸ばす。','伸ばした膝の裏を床へ軽く押し、ゆるめる。途中で反対側に替える。'],'膝を強く押し込まず、息を止めない。',{sides:true}),

@@ -1,4 +1,4 @@
-import {frames, seatedDiagrams} from './catalog.js?v=8';
+import {frames, seatedDiagrams, stepLayout, stepStages} from './catalog.js?v=9';
 
 const pink = '#ed865f';
 const purple = '#523290';
@@ -51,7 +51,32 @@ function seatDetails(ctx, guide) {
   ctx.fillText('床',261,203);
 }
 
-function draw(canvas, exercise, first, last, ratio) {
+function stepPlatform(ctx) {
+  const {left,right,top,floor} = stepLayout;
+  ctx.fillStyle='#bba8df';
+  ctx.fillRect(left,top,right-left,floor-top);
+  line(ctx,[[left,top],[right,top]],purple,2);
+}
+
+function stepAlignment(ctx) {
+  ctx.fillStyle='#fff';
+  ctx.fillRect(7,27,89,110);
+  ctx.font='600 10px system-ui, sans-serif';
+  ctx.fillStyle=ink;
+  ctx.fillText('正面から見た膝',15,42);
+  const legs = [{x:34,color:'#b8a8d7'},{x:67,color:'#ab431d'}];
+  for (const {x,color} of legs) {
+    line(ctx,[[x,61],[x,84],[x,111]],color,5);
+    line(ctx,[[x-5,116],[x+5,116]],color,7);
+    disk(ctx,[x,84],4,'#fff');
+    disk(ctx,[x,84],2.6,color);
+    disk(ctx,[x,118],2.5,color);
+  }
+  ctx.fillStyle=ink;
+  ctx.fillText('膝とつま先は同じ向き',11,131);
+}
+
+function draw(canvas, exercise, first, last, ratio, stepIndex = 0) {
   const ctx = canvas.getContext('2d');
   ctx.setTransform(canvas.width/300,0,0,canvas.height/230,0,0);
   ctx.clearRect(0,0,300,230);
@@ -73,11 +98,8 @@ function draw(canvas, exercise, first, last, ratio) {
     for (let y=54;y<190;y+=12) line(ctx,[[110,y],[103,y-8]],'#d6c6ec',1.5);
     if (exercise.motion==='toeRaise' && ratio>.08) arrow(ctx,[[201,199],[200,180]]);
   }
-  if (exercise.gear.includes('step')) {
-    ctx.fillStyle = '#bba8df';
-    ctx.fillRect(191,175,51,25);
-    line(ctx,[[191,175],[242,175]],purple,3);
-  }
+  const step = exercise.motion==='step';
+  if (step) stepPlatform(ctx);
   const p = Object.fromEntries(Object.keys(first).map(key => [key,pointBetween(first[key],last[key],ratio)]));
   const farSide = seated?.front ? purple : far;
   line(ctx,[p.hip,p.rk,p.rf],farSide,9);
@@ -88,8 +110,8 @@ function draw(canvas, exercise, first, last, ratio) {
   line(ctx,[p.ls,p.le,p.lh],purple);
   if (p.lhTip) line(ctx,[p.lh,p.lhTip],'#ab431d',4);
   if (p.rhTip) line(ctx,[p.rh,p.rhTip],'#ab431d',4);
-  line(ctx,[p.rf,p.rt ?? [p.rf[0]+8,p.rf[1]+3]],farSide,seated ? 7 : 5);
-  line(ctx,[p.lf,p.lt ?? [p.lf[0]+9,p.lf[1]+3]],purple,seated ? 7 : 5);
+  line(ctx,[p.rf,p.rt],farSide,step || seated ? 6 : 5);
+  line(ctx,[p.lf,p.lt],step ? '#ab431d' : purple,step || seated ? 6 : 5);
   disk(ctx,p.head,13,seated ? '#bfa7dd' : pink);
   disk(ctx,[p.head[0]+(seated?.front ? -4 : 5),p.head[1]-2],1.6,ink);
   if (seated?.front) disk(ctx,[p.head[0]+4,p.head[1]-2],1.6,ink);
@@ -100,22 +122,39 @@ function draw(canvas, exercise, first, last, ratio) {
     disk(ctx,p.lk,3.2,pink);
     disk(ctx,p.le,3.2,pink);
   }
+  if (step) {
+    stepAlignment(ctx);
+    ctx.font='600 11px system-ui, sans-serif';
+    ctx.fillStyle=ink;
+    ctx.fillText(stepStages[stepIndex].caption,15,222);
+  }
   if (exercise.gear.includes('band')) {
     line(ctx,[pointBetween(p.hip,p.lk,.86),pointBetween(p.hip,p.rk,.86)],pink,4);
   }
 }
 
 export function attachDiagram(canvas, exercise) {
-  const [first,last] = frames(exercise);
-  diagrams.set(canvas,{exercise,first,last,started:performance.now(), paused:reducedMotion.matches});
-  draw(canvas,exercise,first,last,0);
+  const poses = frames(exercise);
+  diagrams.set(canvas,{exercise,poses,started:performance.now(),paused:reducedMotion.matches});
+  draw(canvas,exercise,poses[0],poses[0],0);
 }
 
 export function setDiagramFrame(canvas, frame) {
   const state = diagrams.get(canvas);
   state.paused = frame !== 'play';
   state.started = performance.now();
-  draw(canvas,state.exercise,state.first,state.last,frame === 'end' ? 1 : 0);
+  const last = state.poses.length-1;
+  const index = frame === 'end' ? last : frame.startsWith('step-') ? Number(frame.slice(5)) : 0;
+  draw(canvas,state.exercise,state.poses[index],state.poses[index],index ? 1 : 0,index);
+}
+
+function drawStep(canvas,state,elapsed) {
+  const step = (elapsed / .95) % state.poses.length;
+  const stage = Math.floor(step);
+  const next = (stage+1) % state.poses.length;
+  const ratio = Math.max(0,Math.min(1,(step-stage-.24)/.63));
+  const smooth = ratio * ratio * (3-2*ratio);
+  draw(canvas,state.exercise,state.poses[stage],state.poses[next],smooth,ratio<.5 ? stage : next);
 }
 
 function animate(now) {
@@ -124,16 +163,21 @@ function animate(now) {
     if (!state || state.paused || state.exercise.still) continue;
     const cycle = state.exercise.type === 'stretch' ? 5 : 4;
     const elapsed = (now - state.started) / 1000;
+    if (state.exercise.motion==='step') {
+      drawStep(canvas,state,elapsed);
+      continue;
+    }
+    const [first,last] = state.poses;
     if (state.exercise.held) {
       const ratio = Math.max(0,Math.min(1,(elapsed-.7)/1.4));
-      draw(canvas,state.exercise,state.first,state.last,ratio);
+      draw(canvas,state.exercise,first,last,ratio);
       if (ratio===1) state.paused = true;
       continue;
     }
     const phase = (elapsed % cycle) / cycle;
     const posed = Math.max(0,Math.min(1,(phase % .5 - .08) / .34));
     const eased = posed * posed * (3 - 2 * posed);
-    draw(canvas,state.exercise,state.first,state.last,phase < .5 ? eased : 1 - eased);
+    draw(canvas,state.exercise,first,last,phase < .5 ? eased : 1 - eased);
   }
   requestAnimationFrame(animate);
 }

@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {catalog, exercises, poses, purposes} from '../catalog.js?v=8';
-import {curatedSource, evidence, intensity, references} from '../evidence.js?v=8';
-import {allowed, alternatives, defaultSettings, estimate, floorChanges, fullSequence, generate, validate, explainPlan} from '../planner.js?v=8';
+import {catalog, exercises, poses, purposes, frames, stepLayout, stepStages} from '../catalog.js?v=9';
+import {curatedSource, evidence, intensity, references} from '../evidence.js?v=9';
+import {allowed, alternatives, defaultSettings, estimate, floorChanges, fullSequence, generate, validate, explainPlan} from '../planner.js?v=9';
 
 const defaultOptions = {purpose:'stretch', minutes:15, poses:Object.keys(poses)};
 
@@ -152,4 +152,46 @@ test('expanded catalog provides beginner options without equipment or shoulder l
   assert.ok(sidePlan.some(row=>row.id==='side-clam' || row.id==='side-leg-raise'));
   assert.ok(!allowed(exercises['side-band-clam'],side,settings));
   assert.ok(!allowed(exercises['quad-arm'],{...standing,poses:['all4']},{...defaultSettings,level:1,blocked:['forearm']}));
+});
+
+test('step-up plants heel and toe on the platform while the knee and body move', () => {
+  const poses=frames(exercises['step-up']);
+  const labels=stepStages.map(stage=>stage.button).filter(Boolean);
+  assert.deepEqual(labels,['台の前','片足を置く','両足が台上','片足を下ろす']);
+  const [start,,placed,lifting,both,,lowered]=poses;
+  assert.deepEqual([start.lf[1],start.rf[1]],[stepLayout.floor-3,stepLayout.floor-3]);
+  for(const pose of [placed,lifting,both,lowered]) {
+    assert.deepEqual(pose.lf,placed.lf);
+    assert.deepEqual(pose.lt,placed.lt);
+    assert.equal(pose.lf[1],stepLayout.top-3);
+  }
+  assert.ok(both.hip[1]<placed.hip[1]);
+  assert.ok(lowered.hip[1]>both.hip[1]);
+  assert.equal(both.rf[1],stepLayout.top-3);
+  assert.equal(lowered.rf[1],stepLayout.floor-3);
+  for(const [i,first] of poses.entries()) {
+    const next=poses[(i+1)%poses.length];
+    for (const tip of ['lf','lt','rf','rt']) {
+      for(let progress=0;progress<=100;progress++) {
+        const [x,y]=first[tip].map((p,axis)=>p+(next[tip][axis]-p)*progress/100);
+        if(x>=stepLayout.left-2 && x<=stepLayout.right+2) assert.ok(y<=stepLayout.top-3);
+      }
+    }
+  }
+});
+
+test('front-facing knees track the feet, and planted toes stay fixed in calf raises', () => {
+  for(const pose of frames(exercises.squat)) {
+    for(const side of ['l','r']) {
+      assert.ok(Math.abs(pose[side+'k'][0]-pose[side+'f'][0])<=1);
+      assert.equal(pose[side+'t'][0],pose[side+'f'][0]);
+    }
+  }
+  const [down,up]=frames(exercises.calf);
+  assert.deepEqual(down.lt,up.lt);
+  assert.deepEqual(down.rt,up.rt);
+  assert.ok(up.lf[1]<down.lf[1]);
+  for(const exercise of catalog) {
+    assert.ok(frames(exercise).every(pose=>['lf','lt','rf','rt'].every(key=>pose[key].every(Number.isFinite))));
+  }
 });

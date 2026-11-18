@@ -1,8 +1,8 @@
-import {poses, gear, zones, purposes, phases, levels, exercises, catalog, seatedDiagrams} from './catalog.js?v=8';
-import {defaultSettings, ratingLabels, statusLabels, generate, estimate, alternatives, allowed, fullSequence, floorChanges, validate, repSeconds, explainPlan, menuMinutes} from './planner.js?v=8';
-import {attachDiagram, setDiagramFrame, announce, voiceAvailable, silence, unlockSound} from './media.js?v=8';
-import {Guide} from './guide.js?v=8';
-import {curatedSource, evidence, intensity, references} from './evidence.js?v=8';
+import {poses, gear, zones, purposes, phases, levels, exercises, catalog, seatedDiagrams, stepStages} from './catalog.js?v=9';
+import {defaultSettings, ratingLabels, statusLabels, generate, estimate, alternatives, allowed, fullSequence, floorChanges, validate, repSeconds, explainPlan, menuMinutes} from './planner.js?v=9';
+import {attachDiagram, setDiagramFrame, announce, voiceAvailable, silence, unlockSound} from './media.js?v=9';
+import {Guide} from './guide.js?v=9';
+import {curatedSource, evidence, intensity, references} from './evidence.js?v=9';
 
 const app = document.querySelector('#app');
 const dialog = document.querySelector('#dialog');
@@ -63,11 +63,16 @@ function confirmDialog(title, message, action, value='', label='確定') {
 
 function diagram(item) {
   const guide = seatedDiagrams[item.motion];
-  const initial = item.still || matchMedia('(prefers-reduced-motion: reduce)').matches ? 'start' : 'play';
+  const step = item.motion==='step';
+  const positions = step
+    ? [...stepStages.flatMap((stage,index)=>stage.button ? [[`step-${index}`,stage.button]] : []),['play','アニメ']]
+    : [['start','開始姿勢'],['end','動かした後'],['play','アニメ']];
+  const initial = item.still || matchMedia('(prefers-reduced-motion: reduce)').matches ? positions[0][0] : 'play';
   return `<figure class="diagram">
     <canvas width="600" height="460" data-diagram="${item.id}" role="img" aria-label="${escape(item.name)}の動作図">${escape(item.name)}</canvas>
     ${item.still ? '' : `<div class="diagram-controls" role="group" aria-label="動作図の表示">
-      ${[['start','開始姿勢'],['end','動かした後'],['play','アニメ']].map(([mode,label]) => button(label,'diagram','small',mode,`aria-pressed="${mode===initial}"`)).join('')}</div>`}
+      ${positions.map(([mode,label]) => button(label,'diagram','small',mode,`aria-pressed="${mode===initial}"`)).join('')}</div>`}
+    ${step ? '<figcaption>橙色は先に出す足。正面図で膝とつま先の向きを確認できます。</figcaption>' : ''}
     ${guide ? `<figcaption>${guide.labels.map((label,index) => `<span>${guide.labels.length>1 ? (index===0 ? '<strong>開始</strong> ' : '<strong>動き</strong> ') : ''}${escape(label)}</span>`).join('')}</figcaption>` : ''}
     </figure>`;
 }
