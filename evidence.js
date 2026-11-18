@@ -17,7 +17,7 @@ export const references = {
   rock: ['Summit Orthopedics「Hip Arthroscopy Rehabilitation」','https://www.summitortho.com/wp-content/uploads/2014/11/All-Phases_Hip-Arthroscopy-Rehabilitation_with-PT-notes_11-14.pdf'],
   iowa: ['University of Iowa「Lower Body Stretches」','https://chtc.sites.uiowa.edu/lower-body-stretches'],
   aceButterfly: ['ACE「Seated Butterfly Stretch」','https://www.acefitness.org/resources/everyone/exercise-library/216/seated-butterfly-stretch/'],
-  ankleMedia: ['Providence「Ankle Pumps / Quadriceps Sets」（PDF）','https://www.providence.org/-/media/project/psjh/shared/files/tjr-resources/osm-knee-handbook.pdf'],
+  ankleMedia: ['Providence「Ankle Pumps / Quadriceps Sets」（PDF）','https://www.providence.org/-/media/project/psjh/shared/files/tjr-resources/osm-knee-handbook.pdf?hash=4B23B5C16983872BA5610384C28C4A40&rev=0509aa19c4624dee9fe8b83dbafc43c7'],
   chairMarch: ['Cambridge University Hospitals「Marching legs while sitting」','https://www.cuh.nhs.uk/patient-information/home-exercise-programme/'],
   breathing: ['NHS「Breathing exercises for stress」','https://www.nhs.uk/mental-health/self-help/guides-tools-and-activities/breathing-exercises-for-stress/']
 };

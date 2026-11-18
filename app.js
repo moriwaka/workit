@@ -2,7 +2,7 @@ import {poses, gear, zones, purposes, phases, levels, exercises, seatedDiagrams}
 import {defaultSettings, ratingLabels, statusLabels, generate, estimate, alternatives, allowed, fullSequence, floorChanges, validate, repSeconds} from './planner.js?v=3';
 import {attachDiagram, setDiagramFrame, announce, voiceAvailable, silence, unlockSound} from './media.js?v=3';
 import {Guide} from './guide.js?v=3';
-import {evidence, intensity, references} from './evidence.js?v=3';
+import {evidence, intensity, references} from './evidence.js?v=3.1';
 
 const app = document.querySelector('#app');
 const dialog = document.querySelector('#dialog');
@@ -75,7 +75,7 @@ function initDiagrams(container = document) {
 
 function sourceLink(key, text) {
   const [label,url] = references[key];
-  return `<a href="${url}" target="_blank" rel="noopener noreferrer">${escape(text ?? label)}</a>`;
+  return `<a href="${escape(url)}" target="_blank" rel="noopener noreferrer">${escape(text ?? label)}</a>`;
 }
 
 function description(item) {
