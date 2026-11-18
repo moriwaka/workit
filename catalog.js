@@ -26,8 +26,6 @@ const kneel = { head:[150,62], neck:[150,81], hip:[151,130], ls:[139,87], rs:[16
 const floorStraddle = {...seatedFront,lk:[108,181],rk:[192,181],lf:[61,195],rf:[239,195],
   lt:[56,178],rt:[244,178],le:[130,131],re:[169,131],lh:[138,179],rh:[165,179]};
 const seatedTwist = {...sitting,rk:[144,119],rf:[176,194],rt:[197,195],lh:[87,191],rh:[125,188]};
-const supineTop = {...supine,head:[150,55],neck:[150,76],hip:[150,138],ls:[132,83],rs:[168,83],
-  le:[126,103],re:[174,103],lh:[123,126],rh:[177,126],lk:[138,156],rk:[164,156],lf:[138,192],rf:[164,192]};
 const sideLying = {...supine,head:[77,174],neck:[94,184],hip:[158,186],ls:[99,178],rs:[93,190],
   le:[111,158],re:[64,191],lh:[127,171],rh:[61,175],lk:[190,165],rk:[196,184],lf:[217,191],rf:[224,194]};
 const bases = {stand:standing, sit:sitting, back:supine, all4, kneel, side:sideLying};
@@ -95,7 +93,6 @@ const motions = {
   sitSpinal: [seatedTwist,{...seatedTwist,head:[91,64],neck:[102,84],ls:[97,91],rs:[119,91],le:[92,135],re:[147,119],rh:[151,138]}],
   straightRaise: [{...flatBack,lk:[197,189],lf:[242,198],lt:[240,176]},
     {...flatBack,lk:[196,164],lf:[236,142],lt:[226,124]}],
-  kneeRoll: [supineTop,{...supineTop,hip:[151,141],lk:[123,159],rk:[143,164]}],
   figureFour: [{lk:[184,138],lf:[208,119],rk:[197,135],rf:[219,136],le:[133,170],re:[138,165],lh:[178,155],rh:[187,141]},
     {lk:[165,127],lf:[195,111],rk:[179,125],rf:[196,119],le:[129,159],re:[135,153],lh:[159,143],rh:[169,130]}],
   standingStill: [{},{}],
@@ -186,6 +183,31 @@ export const heelDigStages = [
   {points:heelDigStance}
 ];
 
+// Oblique overhead view. The legs roll together about the feet while the
+// head, shoulders and arms stay in the same place on the mat.
+const kneeRollUpper = {head:[150,47],neck:[150,67],ls:[123,77],rs:[177,77],
+  le:[101,92],re:[199,92],lh:[96,114],rh:[204,114]};
+
+function kneeRollPose(direction) {
+  const kneeX = 150 + direction*34;
+  const kneeY = 144 + Math.abs(direction)*12;
+  const hipX = 150 + direction*6;
+  return {...kneeRollUpper,hip:[hipX,128],lp:[hipX-14,127+direction*4],rp:[hipX+14,127-direction*4],
+    lk:[kneeX-8,kneeY+direction*4],rk:[kneeX+8,kneeY-direction*4],
+    lf:[140,184],rf:[160,184],lt:[140+direction*4,202],rt:[160+direction*4,202]};
+}
+
+const kneeRollCenter = kneeRollPose(0);
+export const kneeRollStages = [
+  {points:kneeRollCenter,button:'膝を立てる'},
+  {points:kneeRollPose(-1),button:'図の左へ'},
+  {points:kneeRollCenter},
+  {points:kneeRollPose(1),button:'図の右へ'},
+  {points:kneeRollCenter}
+];
+
+export const diagramStages = {step:stepStages,heelDig:heelDigStages,kneeRoll:kneeRollStages};
+
 const frontViewMoves = new Set(['squat','kneeBend','march','toe','side','shoulderRoll',
   'scapula','reach','mountain','standingStill','elbowBend','forearmTurn']);
 
@@ -197,8 +219,8 @@ function footTip(points, side, exercise) {
 }
 
 export function frames(exercise) {
-  if (exercise.motion==='step') return stepStages.map(stage=>stage.points);
-  if (exercise.motion==='heelDig') return heelDigStages.map(stage=>stage.points);
+  const staged = diagramStages[exercise.motion];
+  if (staged) return staged.map(stage=>stage.points);
   const motion = motions[exercise.motion];
   const stages = exercise.motion==='toe' ? toeFrames
     : exercise.motion==='march' ? [{},motion[0],{},motion[1],{}] : motion;
@@ -312,7 +334,7 @@ export const catalog = [
   exercise('sit-straddle','床に座って開脚ストレッチ','sit','sitStraddle','stretch',['hip','ham','core','shoulder'],['床に座り、背すじを保てる範囲で両脚を開く。手を床に置く。','股関節から上体を少し前に傾け、内ももに軽い張りを感じるところで保つ。'],'脚を無理に開かず、手で床を強く押さない。',{level:1}),
   exercise('sit-spinal','床に座って体幹をひねる','sit','sitSpinal','stretch',['core','upper','hip','shoulder'],['床に座って脚を前に伸ばし、片足を反対の膝の外側へ置く。','片手で体を支え、曲げた脚のほうへ胸を少し向ける。反対側も同様に。'],'腕で膝を強く押さず、姿勢を取りづらければ飛ばす。',{level:2,sides:true}),
   exercise('straight-raise','仰向けで伸ばした脚を上げる','back','straightRaise','strength',['hip','quad','core'],['仰向けで片膝を立て、もう片脚を床に伸ばす。','伸ばした脚のつま先をすねのほうへ向け、太ももに軽く力を入れる。足を少し上げてゆっくり下ろす。反対側も同様に。'],'腰を反らしたり、脚を勢いで上げたりしない。',{sides:true}),
-  exercise('knee-roll','仰向けで両膝を左右に倒す','back','kneeRoll','stretch',['core','hip'],['仰向けで膝をそろえて立て、肩を床につける。','両膝を片側へ小さく倒して中央に戻す。左右交互に繰り返す。'],'肩が浮かない範囲で。痛みがあれば中止。'),
+  exercise('knee-roll','仰向けで両膝を左右に倒す','back','kneeRoll','stretch',['core','hip'],['仰向けで膝と足をそろえ、足を床に置いて膝を立てる。両肩を床につける。','両膝をそろえたまま片側へ少し倒し、中央へ戻す。反対側も同じように行う。'],'肩が浮かない範囲で。痛みがあれば中止。'),
   exercise('figure-four','仰向けでお尻を伸ばす','back','figureFour','stretch',['hip','shoulder'],['仰向けで両膝を曲げ、片足首を反対側の太ももに載せる。','床側の脚の太もも裏を両手で持ち、手前に少し引き寄せる。反対側も同様に。'],'首を持ち上げず、膝を押し広げない。',{level:1,sides:true}),
   exercise('elbow-range','立って肘を曲げ伸ばしする','stand','elbowBend','stretch',['forearm'],['腕を下ろし、脇を楽にする。','肘を無理なく曲げてからゆっくり伸ばす。'],'肩をすくめず、反対の手で押さない。'),
   exercise('forearm-turn','手のひらを上・下に返す','stand','forearmTurn','stretch',['forearm'],['肘を直角に曲げて脇に寄せる。','手のひらを上に向け、ゆっくり下に返す。'],'上腕を回さず、痛みのない範囲で。'),

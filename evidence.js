@@ -38,7 +38,8 @@ export const references = {
   straddle: ['ACE「Seated Straddle Stretch」','https://www.acefitness.org/resources/everyone/exercise-library/210/seated-straddle-stretch/'],
   spinalTwist: ['Mayo Clinic「Seated spinal twist」','https://www.mayoclinic.org/healthy-lifestyle/stress-management/multimedia/seated-spinal-twist/vid-20453586'],
   straightLeg: ['Cambridge University Hospitals「Early knee exercises」','https://www.cuh.nhs.uk/our-services/physiotherapy-outpatients/outpatient-physio-resources/resources/knee/early-knee-exercises/'],
-  kneeRollNhs: ['Maidstone and Tunbridge Wells NHS「Knee rolls」（PDF）','https://www.mtw.nhs.uk/wp-content/uploads/2025/10/Management-of-Lower-Back-PainSTANDARD-PRINT-LEAFLET.pdf'],
+  kneeRollNhs: ['South Tees Hospitals NHS「Knee rolling」','https://www.southtees.nhs.uk/resources/knee-rolling/'],
+  kneeRollShoulders: ['University Hospitals Plymouth NHS「Knee Rolls」','https://www.plymouthhospitals.nhs.uk/display-pil/pil-back-rehabilitation-programme-3972/'],
   elbows: ['Cambridge University Hospitals「Elbow range of movement exercises」','https://www.cuh.nhs.uk/patient-information/elbow-range-of-movement-exercises/'],
   wristNhs: ['Royal United Hospitals Bath NHS「Wrist Exercises」（PDF）','https://ruh.nhs.uk/patients/patient_information/HTH024_Wrist_Exercises.pdf'],
   wallSlides: ['Oxford University Hospitals NHS「Wall slides」（PDF）','https://www.ouh.nhs.uk/media/ajkghmek/86726pfps.pdf'],
@@ -97,7 +98,7 @@ export const evidence = {
   'sit-straddle': {name:'Seated straddle stretch',target:'内もも・太もも裏',refs:['straddle'],demo:'straddle'},
   'sit-spinal': {name:'Seated spinal twist',target:'体側・背中・股関節',refs:['spinalTwist'],demo:'spinalTwist'},
   'straight-raise': {name:'Straight leg raise',target:'太もも前と股関節の前',refs:['straightLeg'],demo:'straightLeg'},
-  'knee-roll': {name:'Knee rolls',target:'体幹・股関節をゆっくり動かす',refs:['kneeRollNhs'],demo:'kneeRollNhs'},
+  'knee-roll': {name:'Knee rolls',target:'体幹・股関節をゆっくり動かす',refs:['kneeRollNhs','kneeRollShoulders'],demo:'kneeRollNhs'},
   'figure-four': {name:'Supine figure-four stretch',target:'お尻と股関節の後ろ',refs:['nhsStretch'],demo:'nhsStretch'},
   'kneel-hinge': {name:'Tall-kneeling hip hinge',target:'お尻・股関節と姿勢を保つ体幹',refs:['ace'],variant:true}
 };

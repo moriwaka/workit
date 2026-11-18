@@ -1,4 +1,4 @@
-import {frames, seatedDiagrams, stepLayout, stepStages, heelDigFloor, diagramFloor, footGuides} from './catalog.js?v=12';
+import {frames, seatedDiagrams, stepLayout, stepStages, heelDigFloor, diagramFloor, footGuides} from './catalog.js?v=16';
 
 const pink = '#ed865f';
 const purple = '#523290';
@@ -174,6 +174,48 @@ function stepAlignment(ctx) {
   ctx.fillText('膝とつま先は同じ向き',11,132);
 }
 
+function kneeRollMat(ctx) {
+  ctx.fillStyle = '#e1d5f5';
+  ctx.fillRect(76,26,148,188);
+  ctx.fillStyle = ink;
+  ctx.font = '600 11px system-ui, sans-serif';
+  ctx.fillText('斜め上から',15,22);
+  ctx.fillText('床',231,208);
+}
+
+function kneeRollDetails(ctx, points, horizontalMotion) {
+  const {ls,rs,lk,rk} = points;
+  for (const shoulder of [ls,rs]) {
+    disk(ctx,shoulder,5,'#fff');
+    disk(ctx,shoulder,3,heelColor);
+  }
+  ctx.fillStyle = heelColor;
+  ctx.font = '600 11px system-ui, sans-serif';
+  ctx.fillText('両肩は床に',14,73);
+  line(ctx,[[73,71],[106,71],[116,76]],heelColor,1.5);
+  disk(ctx,lk,4,pink);
+  disk(ctx,rk,4,pink);
+
+  const kneeCenter = (lk[0]+rk[0])/2;
+  if (Math.abs(kneeCenter-150)>10) {
+    const direction = Math.sign(horizontalMotion || kneeCenter-150);
+    const edge = direction<0 ? lk : rk;
+    const [x,y] = edge;
+    arrow(ctx,[[x+direction*8,y-13],[x+direction*20,y-10],[x+direction*27,y-3]]);
+  }
+
+  // This side view makes the bend visible even when the legs are foreshortened.
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(214,27,80,55);
+  ctx.fillStyle = ink;
+  ctx.font = '600 9px system-ui, sans-serif';
+  ctx.fillText('横から見た開始姿勢',216,39);
+  line(ctx,[[220,73],[289,73]],'#9c83be',1.5);
+  disk(ctx,[226,67],4,pink);
+  line(ctx,[[232,69],[250,69],[267,51],[279,69],[287,69]],purple,4);
+  disk(ctx,[267,51],3,pink);
+}
+
 function draw(canvas, first, last, ratio, stepIndex = 0) {
   const {exercise,poses} = diagrams.get(canvas);
   const ctx = canvas.getContext('2d');
@@ -189,7 +231,9 @@ function draw(canvas, first, last, ratio, stepIndex = 0) {
   const guide = footGuides[exercise.motion];
   const step = exercise.motion==='step';
   const floor = step ? stepLayout.floor : diagramFloor;
-  if (seated) seatDetails(ctx,seated,guide ? floor : 205);
+  const kneeRoll = exercise.motion==='kneeRoll';
+  if (kneeRoll) kneeRollMat(ctx);
+  else if (seated) seatDetails(ctx,seated,guide ? floor : 205);
   else line(ctx,[[40,floor],[step ? stepLayout.right : 273,floor]],'#9c83be',2);
   if (guide && !seated) {
     ctx.fillStyle=ink;
@@ -210,13 +254,13 @@ function draw(canvas, first, last, ratio, stepIndex = 0) {
   const farSide = seated?.front ? purple : far;
   const shoeWidth = exercise.motion==='sitHip' ? 10 : guide || seated || exercise.motion==='heelDig' ? 6 : 5;
   if (guide) drawFootContacts(ctx,p,floor,step ? stepLayout : null);
-  line(ctx,[p.hip,p.rk,p.rf],farSide,9);
+  line(ctx,[p.rp ?? p.hip,p.rk,p.rf],farSide,9);
   line(ctx,[p.rs,p.re,p.rh],farSide);
   line(ctx,[p.rf,p.rt],farSide,shoeWidth);
   footMarkers(ctx,p.rf,p.rt);
   line(ctx,[p.neck,p.hip],purple,16);
   line(ctx,[p.ls,p.rs],purple,9);
-  line(ctx,[p.hip,p.lk,p.lf],purple,9);
+  line(ctx,[p.lp ?? p.hip,p.lk,p.lf],purple,9);
   line(ctx,[p.ls,p.le,p.lh],purple);
   if (p.lhTip) line(ctx,[p.lh,p.lhTip],'#ab431d',4);
   if (p.rhTip) line(ctx,[p.rh,p.rhTip],'#ab431d',4);
@@ -235,6 +279,7 @@ function draw(canvas, first, last, ratio, stepIndex = 0) {
     disk(ctx,p.lk,3.2,pink);
     disk(ctx,p.le,3.2,pink);
   }
+  if (kneeRoll) kneeRollDetails(ctx,p,last.lk[0]-first.lk[0]);
   if (step) {
     stepAlignment(ctx);
     ctx.font='600 11px system-ui, sans-serif';
@@ -262,8 +307,10 @@ export function setDiagramFrame(canvas, frame) {
 }
 
 function drawSequence(canvas,state,elapsed) {
-  const count = state.exercise.motion==='step' ? state.poses.length : state.poses.length-1;
-  const step = (elapsed / (state.exercise.motion==='step' ? .95 : .8)) % count;
+  const motion = state.exercise.motion;
+  const count = motion==='step' ? state.poses.length : state.poses.length-1;
+  const stageSeconds = motion==='step' ? .95 : motion==='kneeRoll' ? 1.5 : .8;
+  const step = (elapsed / stageSeconds) % count;
   const stage = Math.floor(step);
   const next = (stage+1) % state.poses.length;
   const ratio = Math.max(0,Math.min(1,(step-stage-.24)/.63));

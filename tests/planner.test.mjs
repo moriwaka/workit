@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {catalog, exercises, poses, purposes, frames, stepLayout, stepStages, heelDigFloor, heelDigStages, diagramFloor, footGuides} from '../catalog.js?v=12';
-import {curatedSource, evidence, intensity, references} from '../evidence.js?v=12';
-import {allowed, alternatives, defaultSettings, estimate, floorChanges, generate, validate, explainPlan, setLabels} from '../planner.js?v=15';
+import {catalog, exercises, poses, purposes, frames, stepLayout, stepStages, heelDigFloor, heelDigStages, kneeRollStages, diagramFloor, footGuides} from '../catalog.js?v=16';
+import {curatedSource, evidence, intensity, references} from '../evidence.js?v=16';
+import {allowed, alternatives, defaultSettings, estimate, floorChanges, generate, validate, explainPlan, setLabels} from '../planner.js?v=16';
 
 const defaultOptions = {purpose:'stretch', minutes:15, poses:Object.keys(poses)};
 
@@ -259,7 +259,7 @@ test('guide waits for equipment or posture changes and advances automatically ot
   globalThis.requestAnimationFrame=()=>{};
   globalThis.document={hidden:false};
   globalThis.window={};
-  const {Guide}=await import('../guide.js?v=15');
+  const {Guide}=await import('../guide.js?v=16');
   const settings={...defaultSettings,voice:false,known:['march','warm-heel','wall-push','sit-hips']};
   const rows=[
     {id:'march',seconds:5,rest:0},{id:'warm-heel',seconds:5,rest:2},
@@ -317,10 +317,28 @@ test('heel digs alternate with only the forward heel touching and its toes eleva
   }
 });
 
+test('knee rolls return through the middle and move both knees together with the shoulders still', () => {
+  const poses = frames(exercises['knee-roll']);
+  const [center,left,middle,right,end] = poses;
+  assert.deepEqual(kneeRollStages.flatMap(stage=>stage.button ? [stage.button] : []),
+    ['膝を立てる','図の左へ','図の右へ']);
+  assert.deepEqual(middle,center);
+  assert.deepEqual(end,center);
+  for (const frame of poses) {
+    for (const joint of ['head','neck','ls','rs','lf','rf']) assert.deepEqual(frame[joint],center[joint]);
+    assert.equal(frame.rk[0]-frame.lk[0],16);
+  }
+  for (const knee of ['lk','rk']) {
+    assert.ok(left[knee][0]<center[knee][0]);
+    assert.ok(right[knee][0]>center[knee][0]);
+    assert.equal(left[knee][0]+right[knee][0],2*center[knee][0]);
+  }
+});
+
 test('the foot guides distinguish sole, heel and toe contact on the floor and the step', async () => {
   globalThis.matchMedia=()=>({matches:false});
   globalThis.requestAnimationFrame=()=>{};
-  const {footContacts}=await import('../media.js?v=13');
+  const {footContacts}=await import('../media.js?v=16');
   const contacts=(pose)=>footContacts(pose,diagramFloor).map(({kind})=>kind);
   for (const [id,expected] of [
     ['toe-raise',['heel','heel']], ['calf',['toe','toe']], ['sit-ankles',['heel','heel']],

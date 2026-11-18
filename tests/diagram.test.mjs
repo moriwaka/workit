@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {exercises} from '../catalog.js?v=12';
+import {exercises} from '../catalog.js?v=16';
 
 test('heel digs animate when a scheduled frame predates opening or replaying the diagram', async (t) => {
   const callbacks = [];
@@ -18,7 +18,7 @@ test('heel digs animate when a scheduled frame predates opening or replaying the
   t.after(() => {
     for (const key of ['matchMedia','requestAnimationFrame','document']) delete globalThis[key];
   });
-  const {attachDiagram,setDiagramFrame} = await import('../media.js?v=13');
+  const {attachDiagram,setDiagramFrame} = await import('../media.js?v=16');
   const frame = time => {
     assert.equal(callbacks.length,1);
     callbacks.shift()(time);
