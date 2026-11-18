@@ -83,6 +83,17 @@ details li,.readable li { margin:.45em 0 }
 progress::-webkit-progress-bar { background:var(--line) }
 progress::-webkit-progress-value { background:var(--purple) }
 progress::-moz-progress-bar { background:var(--purple) }
+.guide-rest {
+  position:sticky; top:max(8px,env(safe-area-inset-top)); z-index:2;
+  display:flex; justify-content:space-between; align-items:center; gap:12px;
+  margin-bottom:16px; padding:12px clamp(12px,3vw,24px); border-radius:16px;
+  background:#124d50; color:white;
+}
+.guide-rest h2 { font-size:clamp(1.7rem,4vw,2.6rem); line-height:1.15 }
+.guide-rest p { margin-top:4px; font-size:.92rem; line-height:1.4; overflow-wrap:anywhere }
+.guide-rest-ended { position:static; background:#e2f1ef; color:#174c50 }
+.rest-countdown { flex:none; display:grid; justify-items:end; gap:3px; font-weight:700; font-size:.86rem }
+.rest-countdown .clock { color:inherit; font-size:clamp(2.3rem,6vw,3.6rem) }
 .guide-grid { display:grid; grid-template-columns:minmax(0,1.14fr) minmax(300px,1fr); gap:20px; align-items:start }
 .diagram { margin:0; min-width:0; border-radius:18px; background:#f7f3ff; border:1px solid #ede3fb; overflow:hidden }
 .diagram canvas { width:100%; display:block; aspect-ratio:300/230; max-height:460px; object-fit:contain }

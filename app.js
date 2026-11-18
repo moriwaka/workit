@@ -316,7 +316,16 @@ function renderGuide(focus=false) {
   const guide = session;
   const item = guide.exercise;
   const preview = ['preview','rest','waiting'].includes(guide.phase);
-  const stage = {preview:'最初の種目',rest:'休憩中 · 次の種目',waiting:'次の種目',switch:'反対側へ切り替え',work:guide.phaseLabel,pain:'痛みで停止中'}[guide.phase];
+  const resting = guide.phase==='rest';
+  const betweenExercises = resting || guide.phase==='waiting';
+  const exerciseName = escape(item.name) + (guide.setLabel ? ` · ${guide.setLabel}` : '');
+  const stage = {preview:'最初の種目',switch:'反対側へ切り替え',work:guide.phaseLabel,pain:'痛みで停止中'}[guide.phase];
+  const restBanner = betweenExercises ? `<section class="guide-rest ${resting ? '' : 'guide-rest-ended'}" aria-labelledby="guide-stage">
+    <div><h2 id="guide-stage" tabindex="-1">${resting ? '休憩中' : '休憩終了'}</h2>
+      <p>次は ${exerciseName}</p></div>
+    ${resting ? `<div class="rest-countdown"><span id="count-caption">${guide.paused ? '一時停止中' : '残り'}</span>
+      <span class="clock" id="count" role="timer"></span></div>` : guide.paused ? '<span>一時停止中</span>' : ''}
+    </section>` : '';
   let primary = '';
   if (guide.phase==='pain') primary = button('トレーニングを終了','guide-end','danger');
   else if (!guide.paused) {
@@ -337,11 +346,13 @@ function renderGuide(focus=false) {
       + button('今後も除外','exclude-dialog') + '</details>';
   app.innerHTML = `<div class="guide-head"><h1>${guide.phaseLabel}</h1><div class="inline"><span class="subtle">${guide.index+1} / ${guide.plan.rows.length}</span>${button('終了','guide-end-dialog','danger small')}</div></div>
     <progress class="progress" value="${guide.index}" max="${guide.plan.rows.length}" aria-label="トレーニングの進行"></progress>
+    ${restBanner}
     <div class="guide-grid">${diagram(item)}
     <section class="panel guide-copy">
-      <p class="mini" id="guide-stage" tabindex="-1">${guide.paused ? '一時停止中' : stage}</p>
-      <h2>${escape(item.name)}${guide.setLabel ? ` · ${guide.setLabel}` : ''}</h2><p class="subtle">${details(item)} · ${duration(guide.row)}</p>
-      <div class="scores"><span class="clock" id="count"></span><span class="subtle" id="count-caption"></span></div>
+      ${betweenExercises ? '<p class="mini">次の種目の動き</p>' : `<p class="mini" id="guide-stage" tabindex="-1">${guide.paused ? '一時停止中' : stage}</p>
+        <h2>${exerciseName}</h2>`}
+      <p class="subtle">${details(item)} · ${duration(guide.row)}</p>
+      ${betweenExercises ? '' : '<div class="scores"><span class="clock" id="count"></span><span class="subtle" id="count-caption"></span></div>'}
       ${guide.phase === 'pain' ? '<p class="alert">運動を止めてください。強い痛み、胸の痛み、めまいなどがある場合は、セッションを終了してください。</p>' : description(item)}
       ${preview && !guide.known ? '<p class="subtle">アニメと説明を確認してから「動きがわかった」を押してください。</p>' : ''}
       ${preview && guide.isMain && !guide.warmed ? '<p class="alert">準備運動を飛ばしました。本編へ進む前に準備運動を済ませてください。</p>' : ''}
@@ -368,11 +379,10 @@ function updateClock() {
     caption.textContent = reps === total && !session.firstSide ? '終えたら「完了」' : side + '回数の目安';
   } else if (session.isTiming) {
     count.textContent = clock(Math.max(0,Math.ceil(session.limit-session.elapsed)));
-    caption.textContent = inWork ? side + '運動の残り時間'
-      : session.phase==='switch' ? '切り替えの残り時間' : '休憩の残り時間';
+    if (session.phase!=='rest') caption.textContent = inWork ? side + '運動の残り時間' : '切り替えの残り時間';
   } else {
     count.textContent = '';
-    caption.textContent = session.phase === 'waiting' ? '休憩終了' : '';
+    caption.textContent = '';
   }
 }
 
