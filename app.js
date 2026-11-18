@@ -1,8 +1,8 @@
-import {poses, gear, zones, purposes, phases, levels, exercises, seatedDiagrams} from './catalog.js?v=3';
-import {defaultSettings, ratingLabels, statusLabels, generate, estimate, alternatives, allowed, fullSequence, floorChanges, validate, repSeconds} from './planner.js?v=3';
-import {attachDiagram, setDiagramFrame, announce, voiceAvailable, silence, unlockSound} from './media.js?v=3';
-import {Guide} from './guide.js?v=3';
-import {evidence, intensity, references} from './evidence.js?v=3.1';
+import {poses, gear, zones, purposes, phases, levels, exercises, catalog, seatedDiagrams} from './catalog.js?v=4';
+import {defaultSettings, ratingLabels, statusLabels, generate, estimate, alternatives, allowed, fullSequence, floorChanges, validate, repSeconds} from './planner.js?v=4';
+import {attachDiagram, setDiagramFrame, announce, voiceAvailable, silence, unlockSound} from './media.js?v=4';
+import {Guide} from './guide.js?v=4';
+import {curatedSource, evidence, intensity, references} from './evidence.js?v=4';
 
 const app = document.querySelector('#app');
 const dialog = document.querySelector('#dialog');
@@ -15,7 +15,9 @@ try {
   const stored = localStorage.getItem(storageKey);
   if (stored) data = validate(JSON.parse(stored));
 } catch { loadError = true; }
-let options = {purpose:'mixed', minutes:15, poses:Object.keys(poses)};
+const selectablePoses = Object.fromEntries(Object.entries(poses).filter(([pose]) =>
+  catalog.some(item => item.pose === pose && Object.hasOwn(curatedSource,item.id))));
+let options = {purpose:'mixed', minutes:15, poses:Object.keys(selectablePoses)};
 let plan = null;
 let session = null;
 let summary = null;
@@ -88,7 +90,8 @@ function description(item) {
     ${entry.demo ? `<p class="demo-reference">${sourceLink(entry.demo,'参考イラストを開く（外部サイト）')}</p>` : ''}
     <details class="move-sources"><summary>種目名・参考資料</summary>
       ${entry.name ? `<p class="subtle">${escape(entry.name)}</p>` : ''}
-      ${entry.variant ? '<p class="subtle">資料を参考に、姿勢・道具・ペースを調整した動きです。</p>' : ''}
+      ${curatedSource[item.id] ? `<p class="subtle">種目の出典　${sourceLink(curatedSource[item.id])}</p>` : ''}
+      <p class="subtle">表示する回数や秒数は、workit での開始目安です。</p>
       <ul>${sources}</ul></details>`;
 }
 
@@ -120,13 +123,13 @@ function renderPlan() {
     <h2>メニュー作成</h2>
     <fieldset><legend>目的</legend><div class="chips">${choices(purposes,[options.purpose],'purpose','radio')}</div></fieldset>
     <fieldset><legend>所要時間の目安</legend><div class="chips">${[10,15,20,30,40].map(n => checkbox(n,`${n}分`,options.minutes===n,'minutes','radio')).join('')}</div></fieldset>
-    <fieldset><legend>今日できる姿勢</legend><div class="chips">${choices(poses,options.poses,'pose')}</div></fieldset>
+    <fieldset><legend>今日できる姿勢</legend><div class="chips">${choices(selectablePoses,options.poses,'pose')}</div></fieldset>
     <p class="subtle">強度 ${levels[data.settings.level]}　·　道具 ${data.settings.gear.map(key => gear[key]).join('、') || 'なし'}　<a href="#settings">変更</a></p>
     <button class="btn primary wide" type="submit">メニューを作る <span aria-hidden="true">→</span></button>
     ${planMessage ? `<p class="alert" role="status">${escape(planMessage)}</p>` : ''}
   </form>
   <section class="panel" aria-label="作成したメニュー">
-    ${plan ? planMarkup() : `<div class="section-title"><h2>トレーニングメニュー</h2></div><p class="empty">メニューを作ると、動きの順番と所要時間がここに表示されます。</p>`}
+    ${plan ? planMarkup() : `<div class="section-title"><h2>トレーニングメニュー</h2></div><p class="empty">既存の運動資料に掲載されている種目から、条件に合う順番を組みます。</p>`}
   </section></div>`;
 }
 
@@ -148,6 +151,9 @@ function planMarkup() {
 }
 
 function planNotice() {
+  if (plan.rows.some(row => !Object.hasOwn(curatedSource,row.id))) {
+    return '<p class="alert">この保存メニューには現在の種目集にない動作が含まれています。「メニューを作る」を押すと、出典のある種目で作り直せます。</p>';
+  }
   if (!validPlan()) return '<p class="alert">現在の設定で使えない種目があります。差し替えるか、メニューを作り直してください。</p>';
   if (floorChanges(plan.rows) > 1) return '<p class="alert">このメニューは立位と床を複数回切り替えます。「メニューを作る」を押すと、現在の条件で姿勢をまとめたメニューを作れます。</p>';
   const time = estimate(plan.rows);
@@ -503,7 +509,7 @@ document.addEventListener('click',event => {
       const entry = data.saved.find(item => item.id===value);
       if (!entry) break;
       plan = structuredClone(entry);
-      options = structuredClone(plan.options);
+      options = {...plan.options,poses:plan.options.poses.filter(pose => Object.hasOwn(selectablePoses,pose))};
       planMessage = '';
       go('plan');
       break;

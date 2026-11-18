@@ -1,4 +1,4 @@
-import {frames, seatedDiagrams} from './catalog.js?v=3';
+import {frames, seatedDiagrams} from './catalog.js?v=4';
 
 const pink = '#ed865f';
 const purple = '#523290';

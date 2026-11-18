@@ -26,3 +26,5 @@ GitHub のリポジトリ設定で **Pages → Deploy from a branch → main →
 - [厚生労働省「筋力トレーニングについて」](https://kennet.mhlw.go.jp/information/information/exercise/s-00-005.html)
 
 座位の動作図は、たとえば [University of Iowa の床で行うストレッチの図](https://chtc.sites.uiowa.edu/lower-body-stretches) を参考にしています。参考図のある種目では、種目画面から元のページを開けます。
+
+メニュー生成は、既存の運動資料で動作と姿勢・道具を確認できた種目だけを使います。種目の並び順・休憩・開始時の負荷には、workit の設定が適用されます。以前の種目は履歴とバックアップの表示用に残しています。

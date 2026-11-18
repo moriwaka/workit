@@ -1,4 +1,5 @@
-import {catalog, exercises, poses, gear, zones, purposes} from './catalog.js?v=3';
+import {catalog, exercises, poses, gear, zones, purposes} from './catalog.js?v=4';
+import {curatedSource} from './evidence.js?v=4';
 
 export const defaultSettings = {
   gear: ['wall'], blocked: [], excluded: [], level: 0, voice: true, volume: 75, known: [], adjustments: {}
@@ -13,7 +14,8 @@ export function overlaps(a, b) {
 }
 
 export function allowed(exercise, options, settings) {
-  return options.poses.includes(exercise.pose)
+  return Object.hasOwn(curatedSource,exercise.id)
+    && options.poses.includes(exercise.pose)
     && exercise.level <= settings.level
     && exercise.gear.every(item => settings.gear.includes(item))
     && !exercise.load.some(zone => settings.blocked.includes(zone))

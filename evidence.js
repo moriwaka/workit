@@ -19,6 +19,12 @@ export const references = {
   aceButterfly: ['ACE「Seated Butterfly Stretch」','https://www.acefitness.org/resources/everyone/exercise-library/216/seated-butterfly-stretch/'],
   ankleMedia: ['Providence「Ankle Pumps / Quadriceps Sets」（PDF）','https://www.providence.org/-/media/project/psjh/shared/files/tjr-resources/osm-knee-handbook.pdf?hash=4B23B5C16983872BA5610384C28C4A40&rev=0509aa19c4624dee9fe8b83dbafc43c7'],
   chairMarch: ['Cambridge University Hospitals「Marching legs while sitting」','https://www.cuh.nhs.uk/patient-information/home-exercise-programme/'],
+  longAnkles: ['Onondaga Physical Therapy「Long Sitting Ankle Pumps」','https://www.onondagapt.com/wp-content/uploads/2019/12/Ankle-exercises.pdf'],
+  wallCalf: ['Worcestershire Acute Hospitals NHS「Heel raises」','https://www.worcsacute.nhs.uk/documents/documents/patient-information-leaflets-a-z/ankle-fracture/?layout=file'],
+  wallStretch: ['Mayo Clinic「A guide to basic stretches」','https://www.mayoclinic.org/healthy-lifestyle/fitness/in-depth/stretching/art-20546848'],
+  sideBend: ['University Hospital Southampton「Exercises to improve your posture」','https://www.uhs.nhs.uk/Media/UHS-website-2019/Patientinformation/Respiratory/Exercises-to-improve-your-posture-562-PIL.pdf'],
+  floorBreath: ['North Bristol NHS Trust「Coming to the body」','https://www.nbt.nhs.uk/sites/default/files/attachments/Session%202%20handout%202020.pdf'],
+  bandHip: ['myHEP「Supine Hip Abduction with Band」','https://myhep.io/exercise-library/how-to-perform-the-supine-hip-abduction-with-band'],
   breathing: ['NHS「Breathing exercises for stress」','https://www.nhs.uk/mental-health/self-help/guides-tools-and-activities/breathing-exercises-for-stress/']
 };
 
@@ -26,30 +32,32 @@ export const references = {
 // broader load tags also account for meaningful support and stabilization.
 export const evidence = {
   march: {name:'March on the spot', target:'股関節・太もも・ふくらはぎ', refs:['nhsWarm','cdc']},
+  'slow-march': {name:'March on the spot',target:'股関節・太もも・ふくらはぎ',refs:['nhsWarm','aha']},
   toe: {name:'Side toe tap', target:'股関節・ふくらはぎ', refs:['aha'], variant:true},
-  'sit-ankles': {name:'Ankle pumps', target:'足首・ふくらはぎ', refs:['ankleMedia'], demo:'ankleMedia', variant:true},
-  'sit-breathe': {target:'呼吸を整える', refs:['breathing'], variant:true},
+  'sit-ankles': {name:'Ankle pumps', target:'足首・ふくらはぎ', refs:['longAnkles','ankleMedia'], demo:'longAnkles', variant:true},
+  'sit-breathe': {target:'呼吸を整える', refs:['floorBreath'], variant:true},
   'heel-slide': {name:'Heel slide', target:'膝・股関節を動かす', refs:['floor'], variant:true},
-  'back-breathe': {target:'呼吸を整える', refs:['breathing'], variant:true},
+  'back-breathe': {target:'呼吸を整える', refs:['floorBreath','breathing'], variant:true},
   'rock-warm': {name:'Quadruped rock-back', target:'股関節を動かす。腕と膝で支える', refs:['rock'], variant:true},
   'rock-cool': {name:'Quadruped rock-back', target:'股関節を動かす。腕と膝で支える', refs:['rock'], variant:true},
   'kneel-warm': {target:'股関節・体幹で姿勢を支える', refs:['aha'], variant:true},
   'kneel-cool': {target:'呼吸を整える。膝と股関節で姿勢を支える', refs:['breathing'], variant:true},
   squat: {name:'Mini-squat / Bodyweight squat',target:'太もも前（大腿四頭筋）・お尻（大殿筋）',refs:['nhsStrength','ace']},
-  calf: {name:'Calf raise / Heel raise',target:'ふくらはぎ（腓腹筋・ヒラメ筋）',refs:['nhsStrength','ace'],variant:true},
+  calf: {name:'Calf raise / Heel raise',target:'ふくらはぎ（腓腹筋・ヒラメ筋）',refs:['wallCalf','ace'],demo:'wallCalf',variant:true},
   'leg-out': {name:'Standing hip abduction / Sideways leg lift',target:'お尻の横（中殿筋などの股関節外転筋）',refs:['nhsStrength','hipAbduction'],variant:true},
   'wall-push': {name:'Wall press-up / Wall push-up',target:'胸（大胸筋）・二の腕の裏（上腕三頭筋）・肩の前',refs:['nhsStrength','ace']},
   'step-up': {name:'Step-up',target:'太もも前（大腿四頭筋）・太もも裏（ハムストリングス）・お尻',refs:['step']},
-  'calf-stretch': {name:'Standing calf stretch',target:'ふくらはぎ（膝を伸ばした側の腓腹筋が中心）',refs:['nhsStretch'],variant:true},
-  'side-bend': {name:'Standing side bend',target:'体側（傾けた側と反対のお腹・腰の横）',refs:['spine']},
+  'calf-stretch': {name:'Standing calf stretch',target:'ふくらはぎ（膝を伸ばした側の腓腹筋が中心）',refs:['wallStretch','nhsStretch'],demo:'wallStretch',variant:true},
+  'side-bend': {name:'Standing side bend',target:'体側（傾けた側と反対のお腹・腰の横）',refs:['sideBend'],demo:'sideBend'},
   'sit-press': {name:'Quad set / Static quadriceps',target:'太もも前（大腿四頭筋）',refs:['knees','ankleMedia'],demo:'ankleMedia',variant:true},
   'sit-march': {name:'Seated march / Seated hip flexion',target:'股関節の前（股関節屈筋群）と姿勢を保つ体幹',refs:['chairMarch'],variant:true},
   'sit-ham': {name:'Seated hamstring stretch',target:'太もも裏（ハムストリングス）',refs:['iowa'],demo:'iowa',variant:true},
   'sit-hips': {name:'Butterfly stretch',target:'内もも（股関節内転筋群）',refs:['iowa','aceButterfly','hips'],demo:'iowa'},
   'sit-turn': {name:'Seated trunk rotation',target:'体幹（腹斜筋など）・背中',refs:['spine'],variant:true},
   bridge: {name:'Glute bridge',target:'お尻（大殿筋）、太もも裏（ハムストリングス）',refs:['hip','core']},
-  'band-open': {name:'Supine banded hip abduction',target:'お尻の横（股関節外転筋群）',refs:['hipAbduction'],variant:true},
+  'band-open': {name:'Supine banded hip abduction',target:'お尻の横（股関節外転筋群）',refs:['bandHip','hipAbduction'],demo:'bandHip',variant:true},
   pelvic: {name:'Pelvic tilt',target:'下腹部・骨盤まわりを動かす',refs:['floor']},
+  'back-ham': {name:'Supine hamstring stretch',target:'太もも裏（ハムストリングス）',refs:['nhsStretch'],demo:'nhsStretch'},
   fallout: {name:'Bent-knee fallout',target:'股関節を動かす。骨盤を保つ体幹にも負荷',refs:['floor'],variant:true},
   bird: {name:'Bird dog / Quadruped',target:'体幹と背中・お尻。支える側の肩にも負荷',refs:['core']},
   'rock-stretch': {name:'Quadruped rock-back',target:'股関節まわり。腕で支えるので肩にも負荷',refs:['rock'],variant:true},
@@ -61,4 +69,16 @@ export const intensity = {
   cool:'軽い動き。少しずつペースを落として呼吸を整える。',
   strength:'姿勢を保って動ける範囲。余力を残し、動きが乱れたり痛みが出たりしたら止める。',
   stretch:'軽い張りを感じる範囲。痛みの手前で止め、反動をつけない。'
+};
+
+// Existing exercises with a matching movement and compatible setup.
+// Keep retired IDs in the catalog for reading old backups and history.
+export const curatedSource = {
+  march:'nhsWarm', 'slow-march':'nhsWarm',
+  'sit-ankles':'longAnkles', 'sit-breathe':'floorBreath', 'heel-slide':'floor',
+  'back-breathe':'floorBreath', 'rock-warm':'rock', 'rock-cool':'rock',
+  squat:'ace', calf:'wallCalf', 'wall-push':'nhsStrength', 'step-up':'step',
+  'calf-stretch':'wallStretch', 'side-bend':'sideBend', 'sit-press':'ankleMedia',
+  'sit-ham':'iowa', 'sit-hips':'iowa', bridge:'hip', 'band-open':'bandHip',
+  pelvic:'floor', 'back-ham':'nhsStretch', fallout:'floor', bird:'core', 'rock-stretch':'rock'
 };

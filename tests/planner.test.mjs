@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {catalog, exercises, poses, purposes} from '../catalog.js?v=3';
-import {evidence, intensity, references} from '../evidence.js?v=3';
-import {allowed, alternatives, defaultSettings, estimate, floorChanges, fullSequence, generate} from '../planner.js?v=3';
+import {catalog, exercises, poses, purposes} from '../catalog.js?v=4';
+import {curatedSource, evidence, intensity, references} from '../evidence.js?v=4';
+import {allowed, alternatives, defaultSettings, estimate, floorChanges, fullSequence, generate} from '../planner.js?v=4';
 
 const defaultOptions = {purpose:'stretch', minutes:15, poses:Object.keys(poses)};
 
@@ -32,7 +32,7 @@ test('generator keeps standing and floor in blocks while honoring load, availabl
           plans++;
           assert.ok(estimate(plan)<=minutes*60);
           assert.ok(fullSequence(plan));
-          assert.ok(plan.every(row=>allowed(exercises[row.id],options,settings)));
+          assert.ok(plan.every(row=>allowed(exercises[row.id],options,settings) && Object.hasOwn(curatedSource,row.id)));
           assert.ok(floorChanges(plan)<=1,JSON.stringify({options,plan}));
         }
       }
@@ -62,5 +62,20 @@ test('every exercise has a load description, intensity guidance, and references'
     assert.ok(intensity[exercise.type],exercise.id);
     assert.ok(entry.refs.length,exercise.id);
     assert.ok(entry.refs.every(ref=>new URL(references[ref][1]).protocol==='https:'),exercise.id);
+  }
+});
+
+test('only source-checked exercises are eligible, including when swapping a move', () => {
+  const options = {...defaultOptions,poses:['sit']};
+  const plan = generate(options,defaultSettings,()=>.42);
+  assert.ok(plan);
+  assert.ok(plan.some(row=>row.id==='sit-ham'));
+  assert.ok(!allowed(exercises['sit-march'],options,defaultSettings));
+  for (const id of Object.keys(curatedSource)) {
+    assert.ok(evidence[id].refs.includes(curatedSource[id]));
+    assert.ok(references[curatedSource[id]]);
+  }
+  for (const index of plan.keys()) {
+    assert.ok(alternatives(plan,index,options,defaultSettings).every(row=>Object.hasOwn(curatedSource,row.id)));
   }
 });
