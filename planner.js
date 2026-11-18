@@ -58,6 +58,15 @@ export function fullSequence(rows) {
   return true;
 }
 
+function floorChange(first, second) {
+  return Number((first === 'stand') !== (second === 'stand'));
+}
+
+function floorChanges(rows) {
+  return rows.slice(1).reduce((count,row,index) =>
+    count + floorChange(exercises[rows[index].id].pose,exercises[row.id].pose),0);
+}
+
 export function generate(options, settings, random = Math.random) {
   const pool = catalog.filter(item => allowed(item, options, settings));
   const warm = pool.filter(item => item.type === 'warm');
@@ -67,22 +76,33 @@ export function generate(options, settings, random = Math.random) {
   if (!warm.length || !cool.length || !main.length) return null;
 
   const seconds = options.minutes * 60;
-  // Protect preparation and cooldown time. Narrow selections reuse light movements.
   const phaseSeconds = seconds >= 1200 ? 300 : seconds >= 900 ? 210 : 120;
   const shortPose = item => ['all4','kneel'].includes(item.pose);
-  const ends = (pool, pose) => pool.find(item => item.pose === pose && !shortPose(item))
-    ?? pool.find(item => !shortPose(item)) ?? pool.find(item => item.pose === pose) ?? pool[0];
+  const endForPose = (items,pose) =>
+    items.find(item => item.pose === pose && !shortPose(item))
+    ?? items.find(item => !floorChange(item.pose,pose) && !shortPose(item))
+    ?? items.find(item => item.pose === pose)
+    ?? items.find(item => !floorChange(item.pose,pose))
+    ?? items.find(item => !shortPose(item)) ?? items[0];
+  const openings = Object.fromEntries(Object.keys(poses).map(pose => [pose,endForPose(warm,pose)]));
+  const closings = Object.fromEntries(Object.keys(poses).map(pose => [pose,endForPose(cool,pose)]));
   const phaseDose = item => shortPose(item) ? 45 : phaseSeconds;
   const maxRepeats = seconds >= 1800 ? 3 : 2;
   const priorities = Object.fromEntries(main.map(item => [item.id, random()]));
-  const score = candidate => {
-    const types = new Set(candidate.rows.map(row => exercises[row.id].type));
-    const diversity = options.purpose === 'mixed' && types.size === 2 ? 850 : 0;
-    return candidate.rows.length * 1000 + diversity
-      + candidate.used.size * 50 - candidate.switches * 30
-      + candidate.preference;
-  };
-  let beam = [{rows:[], used:new Set(), time:0, switches:0, preference:0}];
+
+  function compare(a,b) {
+    // Zero or one transition creates at most one standing block and one floor block.
+    // Consider additional transitions only if a contiguous plan cannot be made.
+    return Math.max(0,a.floorChanges-1) - Math.max(0,b.floorChanges-1)
+      || Number(b.types.size === 2) - Number(a.types.size === 2)
+      || b.rows.length - a.rows.length
+      || b.used.size - a.used.size
+      || a.floorChanges - b.floorChanges
+      || a.poseChanges - b.poseChanges
+      || b.preference - a.preference;
+  }
+
+  let beam = [{rows:[], used:new Set(), types:new Set(), time:0, mainFloorChanges:0, mainPoseChanges:0, preference:0}];
   let best = null;
   for (let round = 0; round < 16 && beam.length; round++) {
     const expanded = [];
@@ -92,30 +112,34 @@ export function generate(options, settings, random = Math.random) {
         const row = dose(item, settings);
         const time = candidate.time + effort(row) + row.rest;
         if (!compatible(row,last) || candidate.rows.filter(previous => previous.id === row.id).length >= maxRepeats) continue;
-        const opening = ends(warm,exercises[candidate.rows[0]?.id ?? row.id].pose);
-        const closing = ends(cool,item.pose);
+        const firstPose = candidate.firstPose ?? item.pose;
+        const opening = openings[firstPose];
+        const closing = closings[item.pose];
         if (time + phaseDose(opening) + phaseDose(closing) + 10 > seconds) continue;
+        const lastPose = last ? exercises[last.id].pose : item.pose;
+        const mainFloorChanges = candidate.mainFloorChanges + floorChange(lastPose,item.pose);
+        const mainPoseChanges = candidate.mainPoseChanges + Number(lastPose !== item.pose);
         expanded.push({
-          rows:[...candidate.rows, row], used:new Set([...candidate.used, item.id]), time,
-          switches:candidate.switches + Number(Boolean(last && exercises[last.id].pose !== item.pose)),
+          rows:[...candidate.rows,row], used:new Set([...candidate.used,item.id]),
+          types:new Set([...candidate.types,item.type]), time, firstPose, opening, closing,
+          mainFloorChanges, mainPoseChanges,
+          floorChanges:mainFloorChanges + floorChange(opening.pose,firstPose) + floorChange(item.pose,closing.pose),
+          poseChanges:mainPoseChanges + Number(opening.pose !== firstPose) + Number(item.pose !== closing.pose),
           preference:candidate.preference + priorities[item.id]
         });
       }
     }
-    expanded.sort((a,b) => score(b) - score(a));
-    beam = expanded.slice(0, 100);
-    if (beam.length) best = beam[0];
+    expanded.sort(compare);
+    beam = expanded.slice(0,100);
+    if (beam.length && (!best || compare(beam[0],best) < 0)) best = beam[0];
   }
   if (!best) return null;
 
-  const first = exercises[best.rows[0].id];
-  const last = exercises[best.rows.at(-1).id];
-  const opening = ends(warm,first.pose);
-  const closing = ends(cool,last.pose);
+  const {opening,closing} = best;
   return [
-    {...dose(opening, settings), seconds:phaseDose(opening), rest:0},
+    {...dose(opening,settings), seconds:phaseDose(opening), rest:0},
     ...best.rows,
-    {...dose(closing, settings), seconds:phaseDose(closing), rest:10}
+    {...dose(closing,settings), seconds:phaseDose(closing), rest:10}
   ];
 }
 
@@ -134,7 +158,8 @@ export function alternatives(rows, index, options, settings) {
   }).filter(row => {
     const changed = rows.with(index, row);
     return fullSequence(changed) && estimate(changed) <= options.minutes * 60;
-  }).sort((a,b) => Number(exercises[b.id].pose === current.pose) - Number(exercises[a.id].pose === current.pose));
+  }).sort((a,b) => floorChanges(rows.with(index,a)) - floorChanges(rows.with(index,b))
+    || Number(exercises[b.id].pose === current.pose) - Number(exercises[a.id].pose === current.pose));
 }
 
 function uniqueKeys(list, table) {
