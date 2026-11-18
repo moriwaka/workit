@@ -1,4 +1,4 @@
-import {frames} from './catalog.js';
+import {frames} from './catalog.js?v=2';
 
 const pink = '#ed865f';
 const purple = '#523290';

@@ -1,6 +1,6 @@
 # workit
 
-自宅トレーニングをPCブラウザで案内する静的Webアプリです。種目の動作図と説明を休憩中に表示します。本編では直前に運動した部位を確認し、スキップ後も同じ部位への負荷が連続しないようにします。軽い準備運動と整理運動は、本編の負荷判定から外しています。
+自宅トレーニングをPCブラウザで案内する静的Webアプリです。種目の動作図と説明を休憩中に表示します。種目名を開くと、名前・主に使う部位・強度の目安と種目別の出典を確認できます。メニューの自動生成では準備運動と整理運動も含めて立位と床の切り替えを1回以内に抑えます。本編では直前に運動した部位を確認し、スキップ後も同じ部位への負荷が連続しないようにします。軽い準備運動と整理運動は、本編の負荷判定から外しています。
 
 ## ローカルで使う
 
@@ -23,3 +23,4 @@ GitHub のリポジトリ設定で **Pages → Deploy from a branch → main →
 - [厚生労働省「身体活動・運動を安全に行うためのポイント」](https://kennet.mhlw.go.jp/information/information/exercise/s-00-008.html)
 - [American Heart Association「Warm Up, Cool Down」](https://www.heart.org/en/healthy-living/exercise-and-physical-activity/fitness-basics/warm-up-cool-down)
 - [NHS「Strength exercises」](https://www.nhs.uk/live-well/exercise/strength-exercises/)
+- [厚生労働省「筋力トレーニングについて」](https://kennet.mhlw.go.jp/information/information/exercise/s-00-005.html)

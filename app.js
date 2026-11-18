@@ -1,7 +1,8 @@
-import {poses, gear, zones, purposes, phases, levels, exercises} from './catalog.js';
-import {defaultSettings, ratingLabels, statusLabels, generate, estimate, alternatives, allowed, fullSequence, validate, repSeconds} from './planner.js';
-import {attachDiagram, toggleDiagram, announce, voiceAvailable, silence, unlockSound} from './media.js';
-import {Guide} from './guide.js';
+import {poses, gear, zones, purposes, phases, levels, exercises} from './catalog.js?v=2';
+import {defaultSettings, ratingLabels, statusLabels, generate, estimate, alternatives, allowed, fullSequence, floorChanges, validate, repSeconds} from './planner.js?v=2';
+import {attachDiagram, toggleDiagram, announce, voiceAvailable, silence, unlockSound} from './media.js?v=2';
+import {Guide} from './guide.js?v=2';
+import {evidence, intensity, references} from './evidence.js?v=2';
 
 const app = document.querySelector('#app');
 const dialog = document.querySelector('#dialog');
@@ -66,8 +67,22 @@ function initDiagrams(container = document) {
   container.querySelectorAll('canvas[data-diagram]').forEach(node => attachDiagram(node, exercises[node.dataset.diagram]));
 }
 
+function sourceLink(key) {
+  const [label,url] = references[key];
+  return `<a href="${url}" target="_blank" rel="noopener noreferrer">${escape(label)}</a>`;
+}
+
 function description(item) {
-  return `<ol>${item.steps.map(step => `<li>${escape(step)}</li>`).join('')}</ol><p class="alert">${escape(item.cue)}</p>`;
+  const entry = evidence[item.id];
+  const sources = entry.refs.map(key => '<li>'+sourceLink(key)+'</li>').join('');
+  return `<ol>${item.steps.map(step => `<li>${escape(step)}</li>`).join('')}</ol>
+    <p class="subtle"><strong>主に使う・伸ばす部位</strong>　${escape(entry.target)}</p>
+    <p class="subtle"><strong>強度の目安</strong>　${escape(intensity[item.type])}</p>
+    <p class="alert">${escape(item.cue)}</p>
+    <details class="move-sources"><summary>種目名・参考資料</summary>
+      ${entry.name ? `<p class="subtle">${escape(entry.name)}</p>` : ''}
+      ${entry.variant ? '<p class="subtle">資料を参考に、姿勢・道具・ペースを調整した動きです。</p>' : ''}
+      <ul>${sources}</ul></details>`;
 }
 
 function duration(row) {
@@ -111,7 +126,7 @@ function renderPlan() {
 function planMarkup() {
   const time = estimate(plan.rows);
   return `<div class="section-title"><h2>${escape(plan.name)}</h2><span class="badge">約${humanTime(time)}</span></div>
-    <p class="subtle">${plan.rows.length-2}種目 ＋ 準備運動・整理運動　·　種目名を押すと動きを確認できます</p>
+    <p class="subtle">${plan.rows.length-2}種目 ＋ 準備運動・整理運動　·　種目名を押すと動き・負荷部位・出典を確認できます</p>
     ${planNotice()}
     ${Object.entries(phases).map(([phase,label]) => `<section class="routine-section"><h3>${label}</h3>
       ${plan.rows.map((row,index) => {
@@ -127,6 +142,7 @@ function planMarkup() {
 
 function planNotice() {
   if (!validPlan()) return '<p class="alert">現在の設定で使えない種目があります。差し替えるか、メニューを作り直してください。</p>';
+  if (floorChanges(plan.rows) > 1) return '<p class="alert">このメニューは立位と床を複数回切り替えます。「メニューを作る」を押すと、現在の条件で姿勢をまとめたメニューを作れます。</p>';
   const time = estimate(plan.rows);
   const types = new Set(plan.rows.slice(1,-1).map(row => exercises[row.id].type));
   const missingType = plan.options.purpose === 'mixed' && types.size < 2;
@@ -165,7 +181,8 @@ function renderSettings() {
   app.innerHTML = `<section class="page"><div class="page-head"><h1>設定</h1></div><div class="stack">
   <section class="panel stack"><h2>運動の条件</h2>
     <fieldset><legend>使える道具</legend><div class="chips">${choices(gear,s.gear,'gear')}</div></fieldset>
-    <fieldset><legend>ふだんの強度</legend><div class="chips">${levels.map((item,i) => checkbox(i,item,s.level===i,'level','radio')).join('')}</div></fieldset>
+    <fieldset><legend>ふだんの強度</legend><div class="chips">${levels.map((item,i) => checkbox(i,item,s.level===i,'level','radio')).join('')}</div>
+    <p class="subtle">筋トレの開始目安は入門4回・軽め6回・標準8回。左右で行う種目は片側ごとの回数です。バンドの抵抗や動かす範囲によって、同じ回数でもきつさが変わります。</p></fieldset>
     <fieldset><legend>負荷を避けたい部位</legend><div class="chips">${choices(zones,s.blocked,'blocked')}</div></fieldset>
     <div><h3 class="field-label">今後も除外する種目</h3>${s.excluded.length ? `<div class="actions">${s.excluded.map(id => button(escape(exercises[id].name)+'の除外を解除','allow','small',id)).join('')}</div>` : '<p class="subtle">除外した種目はありません。</p>'}</div>
     ${Object.keys(s.adjustments).length ? '<div>'+button('種目ごとの負荷調整をリセット','reset-adjust')+'</div>' : ''}
@@ -188,7 +205,10 @@ const safetyContent = `<p>体調と足元を確認し、軽い強度から始め
 
 function renderSafety() {
   app.innerHTML = `<section class="page"><div class="page-head"><h1>運動前の確認・出典</h1></div><article class="panel readable">
-    ${safetyContent}<h2>参考資料</h2><ul>
+    ${safetyContent}<h2>強度の決め方</h2>
+    <p>準備運動は会話できる軽いペースから始めます。筋トレは無理なく続けられる回数から始め、フォームと運動後のきつさを見て徐々に調整します。ストレッチは軽い張りを目安にします。表示する回数・秒数は workit の開始設定です。</p>
+    <h2>参考資料</h2><ul>
+    <li>${sourceLink('jpStrength')}</li><li>${sourceLink('cdc')}</li>
     <li><a href="https://kennet.mhlw.go.jp/information/information/exercise/s-00-008.html" target="_blank" rel="noopener noreferrer">厚生労働省「身体活動・運動を安全に行うためのポイント」</a></li>
     <li><a href="https://www.heart.org/en/healthy-living/exercise-and-physical-activity/fitness-basics/warm-up-cool-down" target="_blank" rel="noopener noreferrer">American Heart Association「Warm Up, Cool Down」</a></li>
     <li><a href="https://www.cuh.nhs.uk/patient-information/hip-strengthening-exercises/" target="_blank" rel="noopener noreferrer">Cambridge University Hospitals「Hip strengthening exercises」</a></li>

@@ -1,4 +1,4 @@
-import {catalog, exercises, poses, gear, zones, purposes} from './catalog.js';
+import {catalog, exercises, poses, gear, zones, purposes} from './catalog.js?v=2';
 
 export const defaultSettings = {
   gear: ['wall'], blocked: [], excluded: [], level: 0, voice: true, volume: 75, known: [], adjustments: {}
@@ -62,7 +62,7 @@ function floorChange(first, second) {
   return Number((first === 'stand') !== (second === 'stand'));
 }
 
-function floorChanges(rows) {
+export function floorChanges(rows) {
   return rows.slice(1).reduce((count,row,index) =>
     count + floorChange(exercises[rows[index].id].pose,exercises[row.id].pose),0);
 }
@@ -91,10 +91,7 @@ export function generate(options, settings, random = Math.random) {
   const priorities = Object.fromEntries(main.map(item => [item.id, random()]));
 
   function compare(a,b) {
-    // Zero or one transition creates at most one standing block and one floor block.
-    // Consider additional transitions only if a contiguous plan cannot be made.
-    return Math.max(0,a.floorChanges-1) - Math.max(0,b.floorChanges-1)
-      || Number(b.types.size === 2) - Number(a.types.size === 2)
+    return Number(b.types.size === 2) - Number(a.types.size === 2)
       || b.rows.length - a.rows.length
       || b.used.size - a.used.size
       || a.floorChanges - b.floorChanges
@@ -118,12 +115,14 @@ export function generate(options, settings, random = Math.random) {
         if (time + phaseDose(opening) + phaseDose(closing) + 10 > seconds) continue;
         const lastPose = last ? exercises[last.id].pose : item.pose;
         const mainFloorChanges = candidate.mainFloorChanges + floorChange(lastPose,item.pose);
+        const standingFloorChanges = mainFloorChanges + floorChange(opening.pose,firstPose) + floorChange(item.pose,closing.pose);
+        if (standingFloorChanges > 1) continue;
         const mainPoseChanges = candidate.mainPoseChanges + Number(lastPose !== item.pose);
         expanded.push({
           rows:[...candidate.rows,row], used:new Set([...candidate.used,item.id]),
           types:new Set([...candidate.types,item.type]), time, firstPose, opening, closing,
           mainFloorChanges, mainPoseChanges,
-          floorChanges:mainFloorChanges + floorChange(opening.pose,firstPose) + floorChange(item.pose,closing.pose),
+          floorChanges:standingFloorChanges,
           poseChanges:mainPoseChanges + Number(opening.pose !== firstPose) + Number(item.pose !== closing.pose),
           preference:candidate.preference + priorities[item.id]
         });
@@ -157,7 +156,8 @@ export function alternatives(rows, index, options, settings) {
     return row;
   }).filter(row => {
     const changed = rows.with(index, row);
-    return fullSequence(changed) && estimate(changed) <= options.minutes * 60;
+    return fullSequence(changed) && estimate(changed) <= options.minutes * 60
+      && floorChanges(changed) <= Math.max(1,floorChanges(rows));
   }).sort((a,b) => floorChanges(rows.with(index,a)) - floorChanges(rows.with(index,b))
     || Number(exercises[b.id].pose === current.pose) - Number(exercises[a.id].pose === current.pose));
 }

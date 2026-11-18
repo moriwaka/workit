@@ -110,3 +110,6 @@ dialog .stack { gap:9px }
   .guide-grid .diagram canvas{max-height:285px}.panel{padding:16px}
   footer{align-items:flex-start;flex-direction:column}
 }
+
+.move-sources { margin-top:10px; font-size:.85rem }
+.guide-copy .alert { margin-top:8px }
