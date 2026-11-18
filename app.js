@@ -1,8 +1,8 @@
-import {poses, gear, zones, purposes, phases, levels, exercises, catalog, seatedDiagrams, stepStages} from './catalog.js?v=9';
-import {defaultSettings, ratingLabels, statusLabels, generate, estimate, alternatives, allowed, fullSequence, floorChanges, validate, repSeconds, explainPlan, menuMinutes} from './planner.js?v=9';
-import {attachDiagram, setDiagramFrame, announce, voiceAvailable, silence, unlockSound} from './media.js?v=9';
-import {Guide} from './guide.js?v=9';
-import {curatedSource, evidence, intensity, references} from './evidence.js?v=9';
+import {poses, gear, zones, purposes, phases, levels, exercises, catalog, seatedDiagrams, stepStages} from './catalog.js?v=10';
+import {defaultSettings, ratingLabels, statusLabels, generate, estimate, alternatives, allowed, fullSequence, floorChanges, validate, repSeconds, explainPlan, menuMinutes} from './planner.js?v=10';
+import {attachDiagram, setDiagramFrame, announce, voiceAvailable, silence, unlockSound} from './media.js?v=10';
+import {Guide} from './guide.js?v=10';
+import {curatedSource, evidence, intensity, references} from './evidence.js?v=10';
 
 const app = document.querySelector('#app');
 const dialog = document.querySelector('#dialog');
@@ -19,6 +19,7 @@ const selectablePoses = Object.fromEntries(Object.entries(poses).filter(([pose])
   catalog.some(item => item.pose === pose && Object.hasOwn(curatedSource,item.id))));
 let options = {purpose:'mixed', minutes:15, poses:Object.keys(selectablePoses)};
 let plan = null;
+let planSettingsKey = '';
 let session = null;
 let summary = null;
 let messageTimer;
@@ -134,22 +135,46 @@ function renderPlan() {
     <fieldset><legend>目的</legend><div class="chips">${choices(purposes,[options.purpose],'purpose','radio')}</div></fieldset>
     <fieldset><legend>所要時間の目安</legend><div class="chips">${menuMinutes.map(n => checkbox(n,`${n}分`,options.minutes===n,'minutes','radio')).join('')}</div></fieldset>
     <fieldset><legend>今日できる姿勢</legend><div class="chips">${choices(selectablePoses,options.poses,'pose')}</div></fieldset>
-    <p class="subtle">強度 ${levels[data.settings.level]}　·　道具 ${data.settings.gear.map(key => gear[key]).join('、') || 'なし'}　<a href="#settings">変更</a></p>
+    <div class="subtle plan-settings"><p>強度 ${levels[data.settings.level]}　·　道具 ${data.settings.gear.map(key => gear[key]).join('、') || 'なし'}　<a href="#settings">変更</a></p>
+      <p>除外中の部位 ${data.settings.blocked.map(key=>zones[key]).join('、') || 'なし'}</p></div>
     <button class="btn primary wide" type="submit">メニューを作る <span aria-hidden="true">→</span></button>
   </form>
-  <section class="panel" aria-label="作成したメニュー">
-    ${plan ? planMarkup() : `<div class="section-title"><h2>トレーニングメニュー</h2></div>
-      ${failedOptions ? limitationNotice(failedOptions,null) : '<p class="empty">既存の運動資料に掲載されている種目から、条件に合う順番を組みます。</p>'}`}
-  </section></div>`;
+  <section id="plan-result" class="panel" aria-label="作成したメニュー">${planResult()}</section></div>`;
+}
+
+function planResult() {
+  return plan ? planMarkup() : `<div class="section-title"><h2>トレーニングメニュー</h2></div>
+    ${failedOptions ? limitationNotice(failedOptions,null) : '<p class="empty">既存の運動資料に掲載されている種目から、条件に合う順番を組みます。</p>'}`;
+}
+
+function focusPlanResult() {
+  const heading = document.querySelector('#plan-result h2');
+  heading?.setAttribute('tabindex','-1');
+  heading?.focus();
+}
+
+function generationSettings() {
+  const {gear,blocked,excluded,level,adjustments} = data.settings;
+  return JSON.stringify([level,[...gear].sort(),[...blocked].sort(),[...excluded].sort(),Object.entries(adjustments).sort()]);
+}
+
+function planNeedsRefresh() {
+  if (!plan) return false;
+  const old = plan.options;
+  return old.purpose!==options.purpose || old.minutes!==options.minutes
+    || old.poses.length!==options.poses.length || old.poses.some(pose=>!options.poses.includes(pose))
+    || generationSettings()!==planSettingsKey;
 }
 
 const mainRows = rows => rows.filter(row=>['strength','stretch'].includes(exercises[row.id].type));
 
 function planMarkup() {
   const time = estimate(plan.rows);
+  const unavailable = validPlan() ? '' : 'disabled';
   return `<div class="section-title"><h2>${escape(plan.name)}</h2><span class="badge">約${humanTime(time)}</span></div>
     <p class="subtle">${mainRows(plan.rows).length}種目 ＋ 準備運動・整理運動　·　種目名を押すと動き・負荷部位・出典を確認できます</p>
     ${planNotice()}
+    <div class="actions plan-start">${button('ガイドを始める','start-dialog','primary','',unavailable)}${button('メニューを保存','save-dialog','','',unavailable)}</div>
     ${Object.entries(phases).map(([phase,label]) => `<section class="routine-section"><h3>${label}${phase==='main' ? '' :
       ` · 約${humanTime(estimate(plan.rows.filter(row=>exercises[row.id].type===phase)))}`}</h3>
       ${plan.rows.map((row,index) => {
@@ -160,10 +185,11 @@ function planMarkup() {
           <div class="move-meta">${details(item)}${index ? ` · 前に休憩 ${row.rest}秒` : ''}</div></div>
           <span class="badge">${duration(row)}</span>${button('差し替え','replace','small',index, `aria-label="${escape(item.name)}を差し替え"`)}</div>`;
       }).join('')}</section>`).join('')}
-    <div class="routine-footer">${button('メニューを保存','save-dialog')}${button('ガイドを始める','start-dialog','primary')}</div>`;
+    `;
 }
 
 function planNotice() {
+  if (planNeedsRefresh()) return '<div class="alert plan-limit" role="status"><p>条件が変わりました。このメニューの開始・保存には作り直しが必要です。</p><div><button class="btn small" type="submit" form="plan-form">この条件で作り直す</button></div></div>';
   if (plan.rows.some(row => !Object.hasOwn(curatedSource,row.id))) {
     return '<p class="alert">この保存メニューには現在の種目集にない動作が含まれています。「メニューを作る」を押すと、出典のある種目で作り直せます。</p>';
   }
@@ -204,7 +230,7 @@ function limitationNotice(request, rows) {
 }
 
 function validPlan() {
-  return plan && fullSequence(plan.rows) && plan.rows.every(row => allowed(exercises[row.id],plan.options,data.settings)
+  return plan && !planNeedsRefresh() && fullSequence(plan.rows) && plan.rows.every(row => allowed(exercises[row.id],plan.options,data.settings)
     && options.poses.includes(exercises[row.id].pose));
 }
 
@@ -278,21 +304,24 @@ function renderGuide(focus=false) {
   const item = guide.exercise;
   const preview = ['preview','rest','waiting'].includes(guide.phase);
   const stage = {preview:'最初の種目',rest:'休憩中 · 次の種目',waiting:'次の種目',work:guide.phaseLabel,pain:'痛みで停止中'}[guide.phase];
-  const controls = [];
-  if (guide.phase === 'pain') {
-    controls.push(button('トレーニングを終了','guide-end','danger'),button('症状が落ち着いたので種目を飛ばす','pain-skip'));
-  } else {
-    if (guide.paused) controls.push(button('再開','resume','primary'));
-    else if (preview && !guide.known) controls.push(button('動きがわかった','ack','primary'));
-    else if (guide.phase === 'preview') controls.push(button('運動を開始','begin','primary'));
-    if (!guide.paused && preview && guide.known && guide.isMain && !guide.warmed) {
-      controls.push(button('準備運動を済ませた','confirm-warm','primary'));
-    }
-    if (!guide.paused && guide.phase === 'work' && guide.row.reps) controls.push(button('完了','done','primary'));
-    if (!guide.paused) controls.push(button('一時停止','pause'));
-    if (!guide.paused && preview) controls.push(button('説明を聞く','replay'));
-    controls.push(button('スキップ','skip'),button('今後も除外','exclude-dialog'),button('痛みが出た','pain','danger'));
+  let primary = '';
+  if (guide.phase==='pain') primary = button('トレーニングを終了','guide-end','danger');
+  else if (!guide.paused) {
+    if (preview && !guide.known) primary = button('動きがわかった','ack','primary');
+    else if (preview && guide.isMain && !guide.warmed) primary = button('準備運動を済ませた','confirm-warm','primary');
+    else if (preview && guide.needsPreparation) primary = button('準備できた','guide-ready','primary');
+    else if (guide.phase==='preview') primary = button('運動を開始','begin','primary');
+    else if (guide.phase==='work' && guide.row.reps) primary = button('完了','done','primary');
   }
+  const fixedControls = guide.phase==='pain' ? primary
+    : primary + (guide.paused ? button('再開','resume','primary') : button('一時停止','pause'))
+      + button('痛みが出た','pain','danger');
+  const secondary = guide.phase==='pain'
+    ? button('症状が落ち着いたので種目を飛ばす','pain-skip')
+    : (!guide.paused && preview ? button('説明を聞く','replay') : '')
+      + button('スキップ','skip')
+      + '<details class="guide-more"><summary>その他の操作</summary>'
+      + button('今後も除外','exclude-dialog') + '</details>';
   app.innerHTML = `<div class="guide-head"><h1>${guide.phaseLabel}</h1><div class="inline"><span class="subtle">${guide.index+1} / ${guide.plan.rows.length}</span>${button('終了','guide-end-dialog','danger small')}</div></div>
     <progress class="progress" value="${guide.index}" max="${guide.plan.rows.length}" aria-label="トレーニングの進行"></progress>
     <div class="guide-grid">${diagram(item)}
@@ -303,8 +332,10 @@ function renderGuide(focus=false) {
       ${guide.phase === 'pain' ? '<p class="alert">運動を止めてください。強い痛み、胸の痛み、めまいなどがある場合は、セッションを終了してください。</p>' : description(item)}
       ${preview && !guide.known ? '<p class="subtle">アニメと説明を確認してから「動きがわかった」を押してください。</p>' : ''}
       ${preview && guide.isMain && !guide.warmed ? '<p class="alert">準備運動を飛ばしました。本編へ進む前に準備運動を済ませてください。</p>' : ''}
-      <div class="controls">${controls.join('')}</div>
-    </section></div>`;
+      ${preview && guide.needsPreparation ? '<p class="alert">姿勢や道具が変わります。「準備できた」を押すまで次の種目は始まりません。</p>' : ''}
+      <div class="controls">${secondary}</div>
+    </section></div>
+    <div class="guide-actions" role="group" aria-label="運動中の操作"><div>${fixedControls}</div></div>`;
   initDiagrams(app);
   updateClock();
   if (focus) document.querySelector('#guide-stage').focus({preventScroll:true});
@@ -389,14 +420,27 @@ function renderSummary() {
   <div class="actions"><a class="btn primary" href="#history">履歴を見る</a><a class="btn" href="#plan">メニューに戻る</a></div></div></section>`;
 }
 
+function requestGuideExit(destination) {
+  session.pause();
+  if (dialog.open) dialog.close();
+  confirmDialog('トレーニングを終了して移動しますか？',
+    'ここまでの実施内容が履歴に残ります。キャンセルすると現在の画面に留まります。',
+    'leave-guide',destination,'終了して移動');
+}
+
 function route() {
   const page = location.hash.slice(1);
+  if (page!=='guide' && session) {
+    history.replaceState(null,'','#guide');
+    requestGuideExit(page || 'plan');
+    return;
+  }
+  document.body.classList.toggle('guide-active',page==='guide' && Boolean(session));
   document.querySelectorAll('.top nav a').forEach(link => {
     if (link.hash === (['saved','history','settings'].includes(page) ? location.hash : page && page !== 'plan' ? '' : '#plan')) {
       link.setAttribute('aria-current','page');
     } else link.removeAttribute('aria-current');
   });
-  if (page !== 'guide' && session) session.finish(true);
   switch (page) {
     case 'saved': renderSaved(); break;
     case 'history': renderHistory(); break;
@@ -457,6 +501,9 @@ app.addEventListener('change',async event => {
   if (input.closest('#plan-form')) {
     const form = new FormData(input.form);
     options = {purpose:form.get('purpose'), minutes:Number(form.get('minutes')), poses:form.getAll('pose')};
+    failedOptions = null;
+    planSuggestions = [];
+    document.querySelector('#plan-result').innerHTML = planResult();
   }
   if (input.id === 'import-file' && input.files[0]) {
     const file = input.files[0];
@@ -493,7 +540,9 @@ function setGeneratedPlan(next,rows) {
   options = structuredClone(next);
   failedOptions = rows ? null : structuredClone(options);
   plan = rows ? {name:purposes[options.purpose]+'メニュー',options:structuredClone(options),rows} : null;
+  planSettingsKey = generationSettings();
   renderPlan();
+  focusPlanResult();
 }
 
 document.addEventListener('submit',event => {
@@ -514,6 +563,12 @@ document.addEventListener('submit',event => {
 });
 
 document.addEventListener('click',event => {
+  const link = event.target.closest('a[href^="#"]');
+  if (session && link && link.hash!=='#guide' && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
+    event.preventDefault();
+    requestGuideExit(link.hash.slice(1));
+    return;
+  }
   const target = event.target.closest('[data-action]');
   if (!target) return;
   const {action,value} = target.dataset;
@@ -524,9 +579,6 @@ document.addEventListener('click',event => {
       const suggestion = planSuggestions[Number(value)];
       if (suggestion) {
         setGeneratedPlan(suggestion.options,suggestion.rows);
-        const heading = app.querySelector('[aria-label="作成したメニュー"] h2');
-        heading?.setAttribute('tabindex','-1');
-        heading?.focus();
       }
       break;
     }
@@ -562,6 +614,7 @@ document.addEventListener('click',event => {
       const entry = data.saved.find(item => item.id===value);
       if (!entry) break;
       plan = structuredClone(entry);
+      planSettingsKey = generationSettings();
       options = {...plan.options,poses:plan.options.poses.filter(pose => Object.hasOwn(selectablePoses,pose))};
       failedOptions = null;
       go('plan');
@@ -587,6 +640,7 @@ document.addEventListener('click',event => {
     case 'start': startSession(); break;
     case 'ack': session?.acknowledge(); break;
     case 'begin': session?.begin(); break;
+    case 'guide-ready': session?.confirmPreparation(); break;
     case 'pause': session?.pause(); break;
     case 'resume': session?.resume(); break;
     case 'done': session?.complete(); break;
@@ -597,7 +651,7 @@ document.addEventListener('click',event => {
     case 'confirm-warm':
       if (session) {
         session.warmed = true;
-        if (session.phase === 'waiting') session.begin();
+        if (session.phase === 'waiting' && session.canBegin) session.begin();
         else renderGuide(true);
       }
       break;
@@ -631,6 +685,13 @@ document.addEventListener('click',event => {
     case 'guide-end-dialog':
       session?.pause();
       confirmDialog('トレーニングを終了する','ここまでの実施内容が履歴に残ります。「キャンセル」のあとで再開できます。','guide-end','','終了する');
+      break;
+    case 'leave-guide':
+      if (dialog.open) dialog.close();
+      if (session) {
+        location.hash = value || 'plan';
+        session.finish(true);
+      }
       break;
     case 'guide-end':
       if (dialog.open) dialog.close();

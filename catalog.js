@@ -140,6 +140,9 @@ export const stepStages = [
     lk:[161,137],lf:[155,160],lt:[177,164],rk:[138,159],rf:[137,199],rt:[158,199]}}
 ];
 
+// Start and finish on both feet and pass through the same stance when switching sides.
+const alternatingFeet = new Set(['march','heelDig','toe']);
+
 const frontViewMoves = new Set(['squat','kneeBend','march','heelDig','toe','side','shoulderRoll',
   'scapula','reach','mountain','standingStill','elbowBend','forearmTurn']);
 
@@ -153,7 +156,9 @@ function footTip(points, side, exercise) {
 
 export function frames(exercise) {
   if (exercise.motion==='step') return stepStages.map(stage=>stage.points);
-  return motions[exercise.motion].map(delta => {
+  const motion = motions[exercise.motion];
+  const stages = alternatingFeet.has(exercise.motion) ? [{},motion[0],{},motion[1],{}] : motion;
+  return stages.map(delta => {
     const points = {...bases[exercise.pose],...delta};
     // Older exercise data may provide either foot endpoint independently.
     points.lt ??= footTip(points,'l',exercise);

@@ -1,4 +1,4 @@
-import {frames, seatedDiagrams, stepLayout, stepStages} from './catalog.js?v=9';
+import {frames, seatedDiagrams, stepLayout, stepStages} from './catalog.js?v=10';
 
 const pink = '#ed865f';
 const purple = '#523290';
@@ -144,12 +144,13 @@ export function setDiagramFrame(canvas, frame) {
   state.paused = frame !== 'play';
   state.started = performance.now();
   const last = state.poses.length-1;
-  const index = frame === 'end' ? last : frame.startsWith('step-') ? Number(frame.slice(5)) : 0;
+  const index = frame === 'end' ? (last===4 ? 1 : last) : frame.startsWith('step-') ? Number(frame.slice(5)) : 0;
   draw(canvas,state.exercise,state.poses[index],state.poses[index],index ? 1 : 0,index);
 }
 
-function drawStep(canvas,state,elapsed) {
-  const step = (elapsed / .95) % state.poses.length;
+function drawSequence(canvas,state,elapsed) {
+  const count = state.exercise.motion==='step' ? state.poses.length : state.poses.length-1;
+  const step = (elapsed / (state.exercise.motion==='step' ? .95 : .8)) % count;
   const stage = Math.floor(step);
   const next = (stage+1) % state.poses.length;
   const ratio = Math.max(0,Math.min(1,(step-stage-.24)/.63));
@@ -163,8 +164,8 @@ function animate(now) {
     if (!state || state.paused || state.exercise.still) continue;
     const cycle = state.exercise.type === 'stretch' ? 5 : 4;
     const elapsed = (now - state.started) / 1000;
-    if (state.exercise.motion==='step') {
-      drawStep(canvas,state,elapsed);
+    if (state.poses.length>2) {
+      drawSequence(canvas,state,elapsed);
       continue;
     }
     const [first,last] = state.poses;

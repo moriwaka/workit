@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {catalog, exercises, poses, purposes, frames, stepLayout, stepStages} from '../catalog.js?v=9';
-import {curatedSource, evidence, intensity, references} from '../evidence.js?v=9';
-import {allowed, alternatives, defaultSettings, estimate, floorChanges, fullSequence, generate, validate, explainPlan} from '../planner.js?v=9';
+import {catalog, exercises, poses, purposes, frames, stepLayout, stepStages} from '../catalog.js?v=10';
+import {curatedSource, evidence, intensity, references} from '../evidence.js?v=10';
+import {allowed, alternatives, defaultSettings, estimate, floorChanges, fullSequence, generate, validate, explainPlan} from '../planner.js?v=10';
 
 const defaultOptions = {purpose:'stretch', minutes:15, poses:Object.keys(poses)};
 
@@ -193,5 +193,55 @@ test('front-facing knees track the feet, and planted toes stay fixed in calf rai
   assert.ok(up.lf[1]<down.lf[1]);
   for(const exercise of catalog) {
     assert.ok(frames(exercise).every(pose=>['lf','lt','rf','rt'].every(key=>pose[key].every(Number.isFinite))));
+  }
+});
+
+test('alternating foot demonstrations start and return with both feet on the floor', () => {
+  for (const id of ['march','slow-march','warm-heel','toe']) {
+    const [start,first,center,second,end]=frames(exercises[id]);
+    assert.deepEqual(center,start);
+    assert.deepEqual(end,start);
+    assert.notDeepEqual(first,start);
+    assert.notDeepEqual(second,start);
+    assert.notDeepEqual(first,second);
+    assert.equal(start.lf[1],start.rf[1]);
+  }
+});
+
+test('guide waits for equipment or posture changes and advances automatically otherwise', async () => {
+  globalThis.matchMedia=()=>({matches:false});
+  globalThis.requestAnimationFrame=()=>{};
+  globalThis.document={hidden:false};
+  globalThis.window={};
+  const {Guide}=await import('../guide.js?v=10');
+  const settings={...defaultSettings,voice:false,known:['march','warm-heel','wall-push','sit-hips']};
+  const rows=[
+    {id:'march',seconds:5,rest:0},{id:'warm-heel',seconds:5,rest:2},
+    {id:'wall-push',reps:4,rest:2},{id:'sit-hips',seconds:10,rest:2}
+  ];
+  const guide=new Guide({name:'テスト',rows},settings,{save(){},render(){},finish(){}});
+  const endRest=()=>{guide.offset=guide.limit+1;guide.tick();};
+  try {
+    guide.begin();
+    guide.complete();
+    assert.equal(guide.phase,'rest');
+    assert.equal(guide.needsPreparation,false);
+    endRest();
+    assert.equal(guide.phase,'work');
+    guide.complete();
+    assert.equal(guide.needsPreparation,true);
+    endRest();
+    assert.equal(guide.phase,'waiting');
+    guide.confirmPreparation();
+    assert.equal(guide.phase,'work');
+    guide.complete();
+    assert.equal(guide.needsPreparation,true);
+    guide.confirmPreparation();
+    assert.equal(guide.phase,'rest');
+    endRest();
+    assert.equal(guide.phase,'work');
+  } finally {
+    clearInterval(guide.interval);
+    for(const key of ['matchMedia','requestAnimationFrame','document','window']) delete globalThis[key];
   }
 });

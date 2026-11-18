@@ -1,6 +1,6 @@
-import {exercises, phases} from './catalog.js?v=9';
-import {compatible, effort, nextLoad, repSeconds} from './planner.js?v=9';
-import {announce, silence} from './media.js?v=9';
+import {exercises, phases} from './catalog.js?v=10';
+import {compatible, effort, nextLoad, repSeconds} from './planner.js?v=10';
+import {announce, silence} from './media.js?v=10';
 
 export class Guide {
   constructor(plan, settings, callbacks) {
@@ -11,6 +11,8 @@ export class Guide {
     this.phase = 'preview';
     this.results = [];
     this.lastLoad = null;
+    this.lastExercise = null;
+    this.prepared = false;
     this.active = 0;
     this.offset = 0;
     this.started = null;
@@ -29,7 +31,15 @@ export class Guide {
   get isTiming() { return this.phase === 'rest' || this.phase === 'work'; }
   get isMain() { return ['strength','stretch'].includes(this.exercise.type); }
   get limit() { return this.phase === 'rest' ? this.row.rest : effort(this.row); }
-  get canBegin() { return this.known && (!this.isMain || this.warmed); }
+  get needsPreparation() {
+    if (!this.lastExercise || this.prepared) return false;
+    return this.lastExercise.pose !== this.exercise.pose
+      || this.lastExercise.gear.length !== this.exercise.gear.length
+      || this.lastExercise.gear.some(tool=>!this.exercise.gear.includes(tool));
+  }
+  get canBegin() {
+    return this.known && !this.needsPreparation && (!this.isMain || this.warmed);
+  }
 
   speak(message, sound) { announce(message, this.settings, sound); }
   stopAudio() { silence(); }
@@ -37,7 +47,8 @@ export class Guide {
   givePreview() {
     const intro = this.phase === 'rest' ? '休憩です。次は、' : '';
     const explanation = this.known ? '' : '。' + this.exercise.steps.join('') + this.exercise.cue;
-    this.speak(intro + this.exercise.name + '。' + this.doseText + explanation, 520);
+    const setup = this.needsPreparation ? '。姿勢や道具を確認し、準備できたらボタンを押してください。' : '';
+    this.speak(intro + this.exercise.name + '。' + this.doseText + explanation + setup,520);
   }
 
   get doseText() {
@@ -60,8 +71,15 @@ export class Guide {
       this.settings.known.push(this.row.id);
       this.callbacks.save();
     }
-    if (this.phase === 'waiting' && this.canBegin && !document.hidden) this.begin();
-    this.callbacks.render(true);
+    if (this.phase==='waiting' && this.canBegin && !document.hidden) this.begin();
+    else this.callbacks.render(true);
+  }
+
+  confirmPreparation() {
+    if (this.paused || !['rest','waiting'].includes(this.phase) || !this.needsPreparation) return;
+    this.prepared = true;
+    if (this.phase==='waiting' && this.canBegin && !document.hidden) this.begin();
+    else this.callbacks.render(true);
   }
 
   begin() {
@@ -69,6 +87,7 @@ export class Guide {
     this.stopAudio();
     this.reset('work',true);
     this.lastLoad = nextLoad(this.row,this.lastLoad);
+    this.lastExercise = this.exercise;
     const prompt = this.exercise.type === 'warm' ? '軽い動きから始めます。'
       : this.exercise.held ? '軽く伸ばし、その姿勢を保ちます。'
       : this.exercise.type === 'cool' ? 'ペースを落とします。力を抜きましょう。'
@@ -169,6 +188,7 @@ export class Guide {
       this.finish(false);
       return;
     }
+    this.prepared = false;
     this.reset('rest',true);
     this.givePreview();
     this.callbacks.render(true);
