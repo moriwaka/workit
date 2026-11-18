@@ -1,7 +1,7 @@
 import {poses, gear, zones, purposes, phases, levels, exercises, catalog, seatedDiagrams, diagramStages, footGuides} from './catalog.js?v=16';
-import {defaultSettings, ratingLabels, statusLabels, generate, estimate, alternatives, allowed, floorChanges, validate, repSeconds, explainPlan, menuMinutes, setLabels} from './planner.js?v=16';
-import {attachDiagram, setDiagramFrame, announce, voiceAvailable, silence, unlockSound} from './media.js?v=16';
-import {Guide} from './guide.js?v=16';
+import {defaultSettings, ratingLabels, statusLabels, generate, estimate, alternatives, allowed, floorChanges, validate, repSeconds, explainPlan, menuMinutes, setLabels, sideSwitchSeconds} from './planner.js?v=17';
+import {attachDiagram, setDiagramFrame, announce, voiceAvailable, silence, unlockSound} from './media.js?v=17';
+import {Guide} from './guide.js?v=17';
 import {curatedSource, evidence, intensity, references} from './evidence.js?v=16';
 
 const app = document.querySelector('#app');
@@ -195,7 +195,7 @@ function planMarkup() {
         if (kind !== phase) return '';
         const set = labels[index] ? ` · ${labels[index]}` : '';
         return `<div class="routine-row"><div><button type="button" class="move-name" data-action="preview" data-value="${row.id}">${escape(item.name)}${set}</button>
-          <div class="move-meta">${details(item)}${index ? ` · 前に休憩 ${row.rest}秒` : ''}</div></div>
+          <div class="move-meta">${details(item)}${item.sides ? ` · 左右の切り替え ${sideSwitchSeconds}秒` : ''}${index ? ` · 前に休憩 ${row.rest}秒` : ''}</div></div>
           <span class="badge">${duration(row)}</span>${button('差し替え','replace','small',index, `aria-label="${escape(item.name)}${set}を差し替え"`)}</div>`;
       }).join('')}</section>`).join('')}
     `;
@@ -316,7 +316,7 @@ function renderGuide(focus=false) {
   const guide = session;
   const item = guide.exercise;
   const preview = ['preview','rest','waiting'].includes(guide.phase);
-  const stage = {preview:'最初の種目',rest:'休憩中 · 次の種目',waiting:'次の種目',work:guide.phaseLabel,pain:'痛みで停止中'}[guide.phase];
+  const stage = {preview:'最初の種目',rest:'休憩中 · 次の種目',waiting:'次の種目',switch:'反対側へ切り替え',work:guide.phaseLabel,pain:'痛みで停止中'}[guide.phase];
   let primary = '';
   if (guide.phase==='pain') primary = button('トレーニングを終了','guide-end','danger');
   else if (!guide.paused) {
@@ -324,7 +324,7 @@ function renderGuide(focus=false) {
     else if (preview && guide.isMain && !guide.warmed) primary = button('準備運動を済ませた','confirm-warm','primary');
     else if (preview && guide.needsPreparation) primary = button('準備できた','guide-ready','primary');
     else if (guide.phase==='preview') primary = button('運動を開始','begin','primary');
-    else if (guide.phase==='work' && guide.row.reps) primary = button('完了','done','primary');
+    else if (guide.phase==='work' && guide.row.reps) primary = button(guide.firstSide ? '片側を終えた' : '完了','done','primary');
   }
   const fixedControls = guide.phase==='pain' ? primary
     : primary + (guide.paused ? button('再開','resume','primary') : button('一時停止','pause'))
@@ -360,14 +360,16 @@ function updateClock() {
   const caption = document.querySelector('#count-caption');
   const inWork = session.phase === 'work';
   const split = session.exercise.sides;
+  const side = split ? session.firstSide ? '片側 · ' : '反対側 · ' : '';
   if (inWork && session.row.reps) {
-    const total = session.row.reps;
+    const total = session.row.reps / (split ? 2 : 1);
     const reps = Math.min(total, Math.floor(session.elapsed/repSeconds));
     count.textContent = `${reps} / ${total}`;
-    caption.textContent = reps === total ? '終えたら「完了」' : split && reps >= total/2 ? '反対側 · 回数の目安' : '回数の目安';
+    caption.textContent = reps === total && !session.firstSide ? '終えたら「完了」' : side + '回数の目安';
   } else if (session.isTiming) {
     count.textContent = clock(Math.max(0,Math.ceil(session.limit-session.elapsed)));
-    caption.textContent = inWork ? (split && session.elapsed >= session.limit/2 ? '反対側 · 残り時間' : '運動の残り時間') : '休憩の残り時間';
+    caption.textContent = inWork ? side + '運動の残り時間'
+      : session.phase==='switch' ? '切り替えの残り時間' : '休憩の残り時間';
   } else {
     count.textContent = '';
     caption.textContent = session.phase === 'waiting' ? '休憩終了' : '';

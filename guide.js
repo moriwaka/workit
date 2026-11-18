@@ -1,6 +1,6 @@
 import {exercises, phases} from './catalog.js?v=16';
-import {effort, repSeconds, setLabels} from './planner.js?v=16';
-import {announce, silence} from './media.js?v=16';
+import {effort, repSeconds, setLabels, sideSwitchSeconds} from './planner.js?v=17';
+import {announce, silence} from './media.js?v=17';
 
 export class Guide {
   constructor(plan, settings, callbacks) {
@@ -13,6 +13,7 @@ export class Guide {
     this.results = [];
     this.lastExercise = null;
     this.prepared = false;
+    this.firstSideTime = null;
     this.active = 0;
     this.offset = 0;
     this.started = null;
@@ -29,9 +30,14 @@ export class Guide {
   get exercise() { return exercises[this.row.id]; }
   get known() { return this.settings.known.includes(this.row.id); }
   get elapsed() { return this.offset + (this.started === null ? 0 : (performance.now() - this.started)/1000); }
-  get isTiming() { return this.phase === 'rest' || this.phase === 'work'; }
+  get isTiming() { return this.phase === 'rest' || this.phase === 'work' || this.phase === 'switch'; }
+  get firstSide() { return this.exercise.sides && this.firstSideTime === null; }
   get isMain() { return ['strength','stretch'].includes(this.exercise.type); }
-  get limit() { return this.phase === 'rest' ? this.row.rest : effort(this.row); }
+  get limit() {
+    if (this.phase==='rest') return this.row.rest;
+    if (this.phase==='switch') return sideSwitchSeconds;
+    return effort(this.row) / (this.exercise.sides ? 2 : 1);
+  }
   get needsPreparation() {
     if (!this.lastExercise || this.prepared) return false;
     return this.lastExercise.pose !== this.exercise.pose
@@ -130,22 +136,30 @@ export class Guide {
         return;
       }
       if (left <= 3 && this.canBegin) this.cue('rest'+left, String(left),600);
+    } else if (this.phase==='switch') {
+      if (left<=0) {
+        this.reset('work',true);
+        this.cue('side-start','始めます。',880);
+        this.callbacks.render(true);
+        return;
+      }
+    } else if (this.firstSide && left<=0) {
+      this.switchSide();
+      return;
     } else if (this.row.reps) {
-      const reps = Math.min(this.row.reps, Math.floor(this.elapsed/repSeconds));
-      if (reps === this.row.reps) {
+      const total = this.row.reps / (this.exercise.sides ? 2 : 1);
+      const reps = Math.min(total,Math.floor(this.elapsed/repSeconds));
+      if (reps === total) {
         this.cue('end',`${reps}。終えたら完了を押してください。`,740);
       } else if (reps > 0) {
-        const halfway = this.row.reps/2;
-        const cue = this.exercise.sides && reps === halfway ? `${reps}。反対側へ。` : String(reps);
-        this.cue('rep'+reps,cue,520);
+        this.cue('rep'+reps,String(reps),520);
       }
     } else {
       if (left <= 0) {
         this.complete();
         return;
       }
-      if (this.exercise.sides && this.elapsed >= this.limit/2) this.cue('side','反対側へ。',590);
-      else if (!this.exercise.sides && this.elapsed >= this.limit/2) {
+      if (!this.exercise.sides && this.elapsed >= this.limit/2) {
         if (this.row.id==='march') this.cue('pace','息が上がらない範囲で、いつもの歩くペースへ。',590);
         if (this.row.id==='slow-march' || this.row.id==='cool-slide' || this.row.id==='cool-sit-ankles') {
           this.cue('pace','動きを小さくして、もう少しゆっくり。',590);
@@ -162,8 +176,19 @@ export class Guide {
     this.speak(message,tone);
   }
 
+  switchSide() {
+    this.firstSideTime = Math.min(this.elapsed,this.limit);
+    this.reset('switch',true);
+    this.cue('switch','反対側へ。',590);
+    this.callbacks.render(true);
+  }
+
   complete() {
     if (this.phase !== 'work' || this.paused) return;
+    if (this.firstSide) {
+      this.switchSide();
+      return;
+    }
     if (this.exercise.type==='warm'
       && !this.plan.rows.slice(this.index+1).some(row=>exercises[row.id].type==='warm')
       && this.results.every(result=>result.status==='done')) this.warmed = true;
@@ -171,6 +196,7 @@ export class Guide {
   }
 
   record(status) {
+    this.active += this.firstSideTime ?? 0;
     if (this.phase === 'work') this.active += this.row.seconds && status === 'done'
       ? Math.min(this.elapsed,this.limit) : this.elapsed;
     this.results.push({row:this.row,status,rating:''});
@@ -185,6 +211,7 @@ export class Guide {
       return;
     }
     this.prepared = false;
+    this.firstSideTime = null;
     this.reset('rest',true);
     this.givePreview();
     this.callbacks.render(true);
@@ -201,7 +228,7 @@ export class Guide {
   finish(ended=true) {
     clearInterval(this.interval);
     this.stopAudio();
-    if (ended && this.phase === 'work') this.record('stopped');
+    if (ended && ['work','switch'].includes(this.phase)) this.record('stopped');
     this.callbacks.finish({
       id:crypto.randomUUID(), date:this.date, name:this.plan.name,
       active:Math.round(this.active), ended,

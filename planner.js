@@ -6,6 +6,7 @@ export const defaultSettings = {
 };
 
 export const repSeconds = 4;
+export const sideSwitchSeconds = 3;
 const maxPlanRows = 64;
 export const ratingLabels = {easy:'余裕あり', okay:'ちょうどよい', hard:'きつい'};
 // Keep the old overlap status readable in existing histories and backups.
@@ -36,8 +37,16 @@ export function effort(row) {
   return row.seconds ?? row.reps * repSeconds;
 }
 
+function scheduledEffort(row) {
+  return effort(row) + (exercises[row.id].sides ? sideSwitchSeconds : 0);
+}
+
 export function estimate(rows) {
-  return rows.reduce((total, row, index) => total + effort(row) + (index ? row.rest : 0), 0);
+  return totalTime(rows,scheduledEffort);
+}
+
+function totalTime(rows, workTime) {
+  return rows.reduce((total, row, index) => total + workTime(row) + (index ? row.rest : 0), 0);
 }
 
 export function setLabels(rows) {
@@ -143,7 +152,7 @@ export function generate(options, settings, random = Math.random) {
       const last = candidate.rows.at(-1);
       for (const item of main) {
         const row = doses[item.id];
-        const time = candidate.time + effort(row) + row.rest;
+        const time = candidate.time + scheduledEffort(row) + row.rest;
         if (candidate.rows.filter(previous => previous.id === row.id).length >= maxRepeats) continue;
         const firstId = candidate.rows[0]?.id ?? item.id;
         const firstPose = exercises[firstId].pose;
@@ -307,7 +316,8 @@ export function validate(data) {
       || entry.rows.length < 3 || entry.rows.length > maxPlanRows) throw new Error('保存メニューが不正です。');
     const rows = entry.rows.map(cleanRow);
     const order = rows.map(row=>({warm:0,strength:1,stretch:1,cool:2})[exercises[row.id].type]);
-    if (estimate(rows) > entry.options.minutes*60 || order[0]!==0 || order.at(-1)!==2
+    // Older menus used the same format and did not budget for side switches.
+    if (totalTime(rows,effort) > entry.options.minutes*60 || order[0]!==0 || order.at(-1)!==2
       || !order.includes(1) || order.some((phase,index)=>index>0 && phase<order[index-1])) {
       throw new Error('保存メニューの並び順が不正です。');
     }

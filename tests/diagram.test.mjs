@@ -18,7 +18,7 @@ test('heel digs animate when a scheduled frame predates opening or replaying the
   t.after(() => {
     for (const key of ['matchMedia','requestAnimationFrame','document']) delete globalThis[key];
   });
-  const {attachDiagram,setDiagramFrame} = await import('../media.js?v=16');
+  const {attachDiagram,setDiagramFrame} = await import('../media.js?v=17');
   const frame = time => {
     assert.equal(callbacks.length,1);
     callbacks.shift()(time);
@@ -42,4 +42,20 @@ test('heel digs animate when a scheduled frame predates opening or replaying the
   assert.deepEqual(marks,standing);
   frame(beforeReplay+1700);
   assert.notDeepEqual(marks,standing);
+
+  await t.test('knee rolls stay centered for three seconds before the other side', () => {
+    attachDiagram(canvas,exercises['knee-roll']);
+    const center=[...marks];
+    frame(10000);
+    frame(11500);
+    const left=[...marks];
+    assert.notDeepEqual(left,center);
+    for(const time of [13000,14000,15999]) {
+      frame(time);
+      assert.deepEqual(marks,center);
+    }
+    frame(17500);
+    assert.notDeepEqual(marks,center);
+    assert.notDeepEqual(marks,left);
+  });
 });

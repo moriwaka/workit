@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {catalog, exercises, poses, purposes, frames, stepLayout, stepStages, heelDigFloor, heelDigStages, kneeRollStages, diagramFloor, footGuides} from '../catalog.js?v=16';
 import {curatedSource, evidence, intensity, references} from '../evidence.js?v=16';
-import {allowed, alternatives, defaultSettings, estimate, floorChanges, generate, validate, explainPlan, setLabels} from '../planner.js?v=16';
+import {allowed, alternatives, defaultSettings, estimate, floorChanges, generate, validate, explainPlan, setLabels} from '../planner.js?v=17';
 
 const defaultOptions = {purpose:'stretch', minutes:15, poses:Object.keys(poses)};
 
@@ -259,7 +259,7 @@ test('guide waits for equipment or posture changes and advances automatically ot
   globalThis.requestAnimationFrame=()=>{};
   globalThis.document={hidden:false};
   globalThis.window={};
-  const {Guide}=await import('../guide.js?v=16');
+  const {Guide}=await import('../guide.js?v=17');
   const settings={...defaultSettings,voice:false,known:['march','warm-heel','wall-push','sit-hips']};
   const rows=[
     {id:'march',seconds:5,rest:0},{id:'warm-heel',seconds:5,rest:2},
@@ -295,6 +295,59 @@ test('guide waits for equipment or posture changes and advances automatically ot
   } finally {
     clearInterval(guide.interval);
     for(const key of ['matchMedia','requestAnimationFrame','document','window']) delete globalThis[key];
+  }
+});
+
+test('timed and repetition exercises give the other side a full three-second transition', async () => {
+  globalThis.matchMedia=()=>({matches:false});
+  globalThis.requestAnimationFrame=()=>{};
+  globalThis.document={hidden:false};
+  globalThis.window={};
+  const {Guide}=await import('../guide.js?v=17');
+  const timed = {id:'side-bend',seconds:10,rest:0};
+  const counted = {id:'step-up',reps:4,rest:0};
+  const settings = {...defaultSettings,voice:false,known:[timed.id,counted.id]};
+  const at = (guide,elapsed) => {
+    guide.started=null;
+    guide.offset=elapsed;
+    guide.tick();
+  };
+  try {
+    for (const [row,perSide] of [[timed,5],[counted,8]]) {
+      let result;
+      const guide = new Guide({name:'テスト',rows:[row]},settings,{save(){},render(){},finish(entry){result=entry;}});
+      try {
+        guide.warmed=true;
+        guide.begin();
+        at(guide,perSide-0.1);
+        assert.equal(guide.phase,'work');
+        at(guide,perSide);
+        assert.equal(guide.phase,'switch');
+        assert.equal(guide.limit,3);
+        at(guide,2.9);
+        guide.pause();
+        guide.tick();
+        assert.equal(guide.phase,'switch');
+        guide.resume();
+        at(guide,3);
+        assert.equal(guide.phase,'work');
+        assert.equal(guide.firstSide,false);
+        at(guide,perSide);
+        if (row.reps) guide.complete();
+        assert.equal(result.active,perSide*2);
+        assert.deepEqual(result.results,[{row,status:'done',rating:''}]);
+      } finally {
+        clearInterval(guide.interval);
+      }
+    }
+    assert.equal(estimate([timed,counted]),32);
+
+    const rows=[{id:'march',seconds:200,rest:0},{...timed,seconds:100},{id:'slow-march',seconds:300,rest:0}];
+    const saved=[{id:'old',name:'旧メニュー',options:{purpose:'stretch',minutes:10,poses:['stand']},rows}];
+    assert.equal(estimate(rows),603);
+    assert.deepEqual(validate({version:1,settings:defaultSettings,saved,history:[]}).saved,saved);
+  } finally {
+    for (const key of ['matchMedia','requestAnimationFrame','document','window']) delete globalThis[key];
   }
 });
 
@@ -338,7 +391,7 @@ test('knee rolls return through the middle and move both knees together with the
 test('the foot guides distinguish sole, heel and toe contact on the floor and the step', async () => {
   globalThis.matchMedia=()=>({matches:false});
   globalThis.requestAnimationFrame=()=>{};
-  const {footContacts}=await import('../media.js?v=16');
+  const {footContacts}=await import('../media.js?v=17');
   const contacts=(pose)=>footContacts(pose,diagramFloor).map(({kind})=>kind);
   for (const [id,expected] of [
     ['toe-raise',['heel','heel']], ['calf',['toe','toe']], ['sit-ankles',['heel','heel']],

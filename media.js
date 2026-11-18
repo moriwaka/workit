@@ -1,4 +1,5 @@
 import {frames, seatedDiagrams, stepLayout, stepStages, heelDigFloor, diagramFloor, footGuides} from './catalog.js?v=16';
+import {sideSwitchSeconds} from './planner.js?v=17';
 
 const pink = '#ed865f';
 const purple = '#523290';
@@ -310,6 +311,11 @@ function drawSequence(canvas,state,elapsed) {
   const motion = state.exercise.motion;
   const count = motion==='step' ? state.poses.length : state.poses.length-1;
   const stageSeconds = motion==='step' ? .95 : motion==='kneeRoll' ? 1.5 : .8;
+  if (motion==='kneeRoll') {
+    const oneSide = 2*stageSeconds;
+    const interval = oneSide+sideSwitchSeconds;
+    elapsed = Math.floor(elapsed/interval)*oneSide + Math.min(elapsed%interval,oneSide);
+  }
   const step = (elapsed / stageSeconds) % count;
   const stage = Math.floor(step);
   const next = (stage+1) % state.poses.length;
