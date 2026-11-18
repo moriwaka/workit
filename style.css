@@ -170,11 +170,12 @@ dialog .stack { gap:9px }
 .phase-total-cool dd { color:#ad5b38 }
 .library-page { max-width:none }
 .library-intro { color:var(--muted); margin-bottom:20px }
-.library-filters { display:grid; grid-template-columns:minmax(0,2fr) repeat(2,minmax(120px,1fr)); gap:16px; align-items:end }
+.library-filters { display:grid; grid-template-columns:minmax(0,2fr) repeat(3,minmax(0,1fr)); gap:16px; align-items:end }
 .library-filters .stack { gap:8px; font-size:.9rem; font-weight:700 }
 .library-filters input[type=search],.library-filters select { min-height:44px }
-.library-available { grid-column:1/3; display:flex; align-items:center; gap:8px; font-size:.85rem; min-height:32px; cursor:pointer }
-.library-available input { accent-color:var(--purple); width:18px; height:18px; flex:none }
+.library-checks { grid-column:1/4; display:flex; flex-wrap:wrap; gap:4px 18px }
+.library-checks label { display:flex; align-items:center; gap:8px; font-size:.85rem; min-height:32px; cursor:pointer }
+.library-checks input { accent-color:var(--purple); width:18px; height:18px; flex:none }
 .library-count { margin:18px 0 10px }
 .library-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px }
 .library-card { background:var(--surface); align-content:start; grid-template-rows:auto auto 1fr auto auto }
@@ -183,6 +184,9 @@ dialog .stack { gap:9px }
 .library-card .btn { min-height:44px }
 .library-empty { grid-column:1/-1 }
 .library-empty .btn { margin-top:14px }
+.hiit-details { display:grid; grid-template-columns:max-content minmax(0,1fr); gap:10px 14px; line-height:1.65 }
+.hiit-details dt { color:var(--muted); font-size:.85rem; font-weight:700 }
+.hiit-details dd { margin:0 }
 .guide-next { border-top:1px solid var(--line); margin-top:18px; padding-top:14px }
 .guide-next p { font-weight:700; margin:4px 0; overflow-wrap:anywhere }
 .guide-copy .clock { font-size:clamp(3.15rem,6vw,5rem) }
@@ -195,7 +199,7 @@ dialog .stack { gap:9px }
 }
 @media (max-width:760px) {
   .library-filters { grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px }
-  .library-query,.library-available { grid-column:1/-1 }
+  .library-query,.library-checks,.library-filters label:has(select[name=classification]) { grid-column:1/-1 }
   .library-filters > a { grid-column:1/-1 }
   .guide-head { align-items:flex-start }
   .guide-head .inline { justify-content:flex-end; flex-wrap:wrap; gap:8px }

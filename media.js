@@ -229,7 +229,7 @@ function draw(canvas, first, last, ratio, stepIndex = 0) {
   ctx.fillStyle = '#eee7fb';
   ctx.fill();
   const seated = seatedDiagrams[exercise.motion];
-  const guide = footGuides[exercise.motion];
+  const guide = exercise.diagram ?? footGuides[exercise.motion];
   const step = exercise.motion==='step';
   const floor = step ? stepLayout.floor : diagramFloor;
   const kneeRoll = exercise.motion==='kneeRoll';
@@ -293,7 +293,7 @@ function draw(canvas, first, last, ratio, stepIndex = 0) {
 }
 
 export function attachDiagram(canvas, exercise) {
-  const poses = frames(exercise);
+  const poses = exercise.diagram?.stages.map(stage=>stage.points) ?? frames(exercise);
   diagrams.set(canvas,{exercise,poses,started:null,paused:reducedMotion.matches});
   draw(canvas,poses[0],poses[0],0);
 }
@@ -310,7 +310,7 @@ export function setDiagramFrame(canvas, frame) {
 function drawSequence(canvas,state,elapsed) {
   const motion = state.exercise.motion;
   const count = motion==='step' ? state.poses.length : state.poses.length-1;
-  const stageSeconds = motion==='step' ? .95 : motion==='kneeRoll' ? 1.5 : .8;
+  const stageSeconds = state.exercise.diagram?.stageSeconds ?? (motion==='step' ? .95 : motion==='kneeRoll' ? 1.5 : .8);
   if (motion==='kneeRoll') {
     const oneSide = 2*stageSeconds;
     const interval = oneSide+sideSwitchSeconds;

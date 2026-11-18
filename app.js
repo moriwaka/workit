@@ -1,9 +1,10 @@
 import {poses, gear, zones, purposes, phases, levels, exercises, catalog, seatedDiagrams, diagramStages, footGuides} from './catalog.js?v=16';
 import {defaultSettings, ratingLabels, statusLabels, generate, estimate, alternatives, allowed, floorChanges, validate, repSeconds, explainPlan, menuMinutes, setLabels, sideSwitchSeconds} from './planner.js?v=18';
-import {attachDiagram, setDiagramFrame, announce, voiceAvailable, silence, unlockSound} from './media.js?v=18';
-import {Guide} from './guide.js?v=18';
+import {attachDiagram, setDiagramFrame, announce, voiceAvailable, silence, unlockSound} from './media.js?v=19';
+import {Guide} from './guide.js?v=19';
 import {curatedSource, evidence, intensity, references} from './evidence.js?v=16';
-import {exerciseTypes, filterExercises, workoutBreakdown} from './workout-view.js?v=1';
+import {defaultLibraryFilters, exerciseTypes, filterExercises, hiitById, libraryGear, libraryPoses, workoutBreakdown} from './workout-view.js?v=3';
+import {hiitDifficulty, hiitGroups, hiitSubgroups} from './hiit-library.js?v=2';
 
 const app = document.querySelector('#app');
 const dialog = document.querySelector('#dialog');
@@ -26,7 +27,7 @@ let summary = null;
 let messageTimer;
 let failedOptions = null;
 let planSuggestions = [];
-let libraryFilters = {query:'',pose:'',type:'',availableOnly:true};
+let libraryFilters = {...defaultLibraryFilters};
 let guideFullscreen = false;
 
 const escape = value => String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -67,8 +68,8 @@ function confirmDialog(title, message, action, value='', label='確定') {
 
 function diagram(item) {
   const guide = seatedDiagrams[item.motion];
-  const footGuide = footGuides[item.motion];
-  const staged = diagramStages[item.motion];
+  const footGuide = item.diagram ?? footGuides[item.motion];
+  const staged = item.diagram?.stages ?? diagramStages[item.motion];
   const indexed = staged?.flatMap((stage,index)=>stage.button ? [[index,stage.button]] : []) ?? footGuide?.buttons;
   const positions = indexed ? indexed.map(([index,label])=>[`pose-${index}`,label])
     : [['start','開始姿勢'],['end','動かした後']];
@@ -87,7 +88,10 @@ function diagram(item) {
 }
 
 function initDiagrams(container = document) {
-  container.querySelectorAll('canvas[data-diagram]').forEach(node => attachDiagram(node, exercises[node.dataset.diagram]));
+  container.querySelectorAll('canvas[data-diagram]').forEach(node => {
+    const {diagram:id} = node.dataset;
+    attachDiagram(node,exercises[id] ?? hiitById[id]);
+  });
 }
 
 function sourceLink(key, text) {
@@ -98,6 +102,7 @@ function sourceLink(key, text) {
 function description(item) {
   const entry = evidence[item.id];
   const sources = entry.refs.map(key => '<li>'+sourceLink(key)+'</li>').join('');
+  const hiit = hiitById[item.id];
   return `<ol>${item.steps.map(step => `<li>${escape(step)}</li>`).join('')}</ol>
     <p class="subtle"><strong>主に使う・伸ばす部位</strong>　${escape(entry.target)}</p>
     <p class="subtle"><strong>強度の目安</strong>　${escape(intensity[item.type])}</p>
@@ -107,7 +112,9 @@ function description(item) {
       ${entry.name ? `<p class="subtle">${escape(entry.name)}</p>` : ''}
       ${curatedSource[item.id] ? `<p class="subtle">種目の出典　${sourceLink(curatedSource[item.id])}</p>` : ''}
       <p class="subtle">表示する回数や秒数は、workit での開始目安です。</p>
-      <ul>${sources}</ul></details>`;
+      <ul>${sources}</ul>
+      ${hiit ? `<p class="subtle"><strong>HIIT Builder での動き方</strong>　${escape(hiit.summary)}</p>
+        <ul>${hiitSourceLinks(hiit)}</ul>` : ''}</details>`;
 }
 
 function duration(row) {
@@ -257,13 +264,24 @@ function validPlan() {
 }
 
 function renderLibrary() {
-  const select = (name,label,table,value) => `<label class="stack">${label}<select name="${name}"><option value="">すべて</option>${Object.entries(table).map(([key,text])=>`<option value="${key}" ${value===key ? 'selected' : ''}>${escape(text)}</option>`).join('')}</select></label>`;
+  const option = (key,text,value) => `<option value="${key}" ${value===key ? 'selected' : ''}>${escape(text)}</option>`;
+  const optionsFor = (table,value) => Object.entries(table).map(([key,text])=>option(key,text,value)).join('');
+  const select = (name,label,options) => `<label class="stack">${label}<select name="${name}"><option value="">すべて</option>${options}</select></label>`;
+  const classifications = Object.entries(hiitGroups).map(([key,label])=>`<optgroup label="${label}">
+    ${option(key,label+'（すべて）',libraryFilters.classification)}
+    ${Object.entries(hiitSubgroups).filter(([,sub])=>sub.group===key)
+      .map(([id,sub])=>option(id,sub.name,libraryFilters.classification)).join('')}</optgroup>`).join('');
   app.innerHTML = `<section class="page library-page"><div class="page-head"><h1>種目ライブラリ</h1><a class="btn" href="#plan">メニューを作る</a></div>
-    <p class="library-intro">動きを知ってから、始めよう。種目を開くと、動作図・負荷の目安・参考資料を確認できます。</p>
+    <p class="library-intro">種目を開くと、動き方・負荷の目安・参考資料を確認できます。</p>
     <form id="library-filters" class="panel library-filters" role="search" aria-label="種目を検索">
       <label class="stack library-query">種目名・部位・道具<input type="search" name="query" value="${escape(libraryFilters.query)}" placeholder="例：スクワット、太もも、壁" autocomplete="off"></label>
-      ${select('pose','姿勢',selectablePoses,libraryFilters.pose)}${select('type','種類',exerciseTypes,libraryFilters.type)}
-      <label class="library-available"><input type="checkbox" name="available" ${libraryFilters.availableOnly ? 'checked' : ''}>現在の設定で使える種目だけ</label>
+      ${select('pose','姿勢',optionsFor(libraryPoses,libraryFilters.pose))}
+      ${select('type','種類',optionsFor(exerciseTypes,libraryFilters.type))}
+      ${select('classification','HIIT の分類',classifications)}
+      <div class="library-checks">
+        <label><input type="checkbox" name="available" ${libraryFilters.availableOnly ? 'checked' : ''}>現在の設定でメニューに使える種目だけ</label>
+        <label><input type="checkbox" name="noJump" ${libraryFilters.noJump ? 'checked' : ''}>ジャンプなし</label>
+      </div>
       <a href="#settings" class="subtle">道具・強度・除外する部位の設定</a>
     </form>
     <p id="library-count" class="subtle library-count" role="status" aria-live="polite"></p>
@@ -271,21 +289,53 @@ function renderLibrary() {
   updateLibraryResults();
 }
 
+function libraryEquipment(item) {
+  return item.gear.map(key=>libraryGear[key]).join('・') || '道具なし';
+}
+
+function hiitSourceLinks(item) {
+  return item.sources.map(({title,url})=>`<li><a href="${escape(url)}" target="_blank" rel="noopener noreferrer">${escape(title)}（HIIT Builder）</a></li>`).join('');
+}
+
+function previewHiit(item) {
+  const referenceLinks = item.diagram?.references.map(({title,url})=>
+    `<li><a href="${escape(url)}" target="_blank" rel="noopener noreferrer">${escape(title)}</a></li>`).join('') ?? '';
+  openDialog(`<h2>${escape(item.name)}</h2>
+    <p class="subtle">${hiitGroups[item.group]} · ${hiitSubgroups[item.subgroup].name} · ${libraryPoses[item.pose]}</p>
+    ${item.diagram ? diagram(item) : ''}
+    <dl class="hiit-details">
+      <dt>動き方</dt><dd>${escape(item.summary)}</dd>
+      <dt>主に使う部位</dt><dd>${escape(item.target)}</dd>
+      <dt>道具</dt><dd>${libraryEquipment(item)}</dd>
+      <dt>強度・跳躍</dt><dd>${hiitDifficulty[item.difficulty]} · ${item.jumps ? 'ジャンプあり' : 'ジャンプなし'}</dd>
+    </dl>
+    <p class="subtle">${item.diagram ? '動作図の参考資料' : '出典ページで動作アニメーションや難易度を変えた例を確認できます。'}</p>
+    <ul>${referenceLinks}${hiitSourceLinks(item)}</ul>
+    <div class="actions end">${button('閉じる','close')}</div>`);
+  initDiagrams(dialog);
+}
+
 function updateLibraryResults() {
   const matches = filterExercises(libraryFilters,data.settings);
   document.querySelector('#library-count').textContent = `${matches.length}種目`;
   document.querySelector('#library-results').innerHTML = matches.length ? matches.map(item=> {
-    const available = allowed(item,{poses:Object.keys(selectablePoses)},data.settings);
-    return `<article class="list-card library-card"><div class="section-title"><span class="mini">${exerciseTypes[item.type]}</span><span class="badge">${poses[item.pose]}</span></div>
-      <h2>${escape(item.name)}</h2><p class="subtle">${escape(evidence[item.id].target)}</p>
-      <p class="subtle">${item.gear.length ? item.gear.map(key=>gear[key]).join('・') : '道具なし'} · ${levels[item.level]}${available ? '' : ' · 現在の設定では対象外'}</p>
-      <div>${button('動きを確認','preview','',item.id,`aria-label="${escape(item.name)}の動きを確認"`)}</div></article>`;
+    const available = item.supportsGuide && allowed(item,{poses:Object.keys(selectablePoses)},data.settings);
+    const category = item.hiit ? hiitGroups[item.hiit.group] : exerciseTypes[item.type];
+    const status = item.supportsGuide ? levels[item.level]+(available ? '' : ' · 現在の設定では対象外')
+      : hiitDifficulty[item.difficulty]+(item.jumps ? ' · ジャンプあり' : '')+' · 資料参照';
+    return `<article class="list-card library-card"><div class="section-title"><span class="mini">${category}</span><span class="badge">${libraryPoses[item.pose]}</span></div>
+      <h2>${escape(item.name)}</h2><p class="subtle">${escape(item.target)}</p>
+      <p class="subtle">${libraryEquipment(item)} · ${status}</p>
+      <div>${button('動きを確認',item.supportsGuide ? 'preview' : 'preview-hiit','',item.id,`aria-label="${escape(item.name)}の動きを確認"`)}</div></article>`;
   }).join('') : `<div class="empty library-empty"><p>条件に合う種目がありません。</p><p>検索語や絞り込みを変えてみてください。</p>${button('絞り込みをリセット','reset-library')}</div>`;
 }
 
 function readLibraryFilters(form) {
   const values = new FormData(form);
-  libraryFilters = {query:values.get('query'),pose:values.get('pose'),type:values.get('type'),availableOnly:values.has('available')};
+  libraryFilters = {
+    query:values.get('query'),pose:values.get('pose'),type:values.get('type'),classification:values.get('classification'),
+    availableOnly:values.has('available'),noJump:values.has('noJump')
+  };
   updateLibraryResults();
 }
 
@@ -661,7 +711,7 @@ document.addEventListener('click',event => {
   const s = data.settings;
   switch (action) {
     case 'reset-library':
-      libraryFilters = {query:'',pose:'',type:'',availableOnly:true};
+      libraryFilters = {...defaultLibraryFilters};
       renderLibrary();
       document.querySelector('#library-filters input').focus();
       break;
@@ -674,6 +724,7 @@ document.addEventListener('click',event => {
       }
       break;
     }
+    case 'preview-hiit': previewHiit(hiitById[value]); break;
     case 'preview': {
       const item = exercises[value];
       openDialog(`<h2>${escape(item.name)}</h2><p class="subtle">${details(item)}</p>${diagram(item)}${description(item)}
