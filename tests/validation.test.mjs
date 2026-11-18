@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {defaultSettings, validate} from '../planner.js?v=18';
+import {defaultSettings, validate} from '../planner.js?v=20';
 
 const backup = () => ({version:1,settings:structuredClone(defaultSettings),
   saved:[{id:'menu',name:'メニュー',options:{purpose:'strength',minutes:10,poses:['stand']},

@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {exercises, frames, levels, zones} from '../catalog.js?v=17';
 import {curatedSource, evidence, references} from '../evidence.js?v=17';
-import {allowed, alternatives, defaultSettings, estimate, generate, validate} from '../planner.js?v=19';
+import {allowed, alternatives, defaultSettings, estimate, generate, validate} from '../planner.js?v=20';
 import {hiitExercises, hiitSubgroups} from '../hiit-library.js?v=3';
-import {filterExercises, libraryGear, libraryPoses, workoutBreakdown} from '../workout-view.js?v=4';
+import {filterExercises, libraryExercise, libraryGear, libraryPoses, libraryTypes, workoutBreakdown} from '../workout-view.js?v=8';
 
 test('verified HIIT exercises generate timed cardio rows and survive backup restore', () => {
   const exercise = exercises['hiit-standing-jacks-low-impact'];
@@ -57,15 +57,60 @@ test('empty and partial workouts have no empty phase blocks', () => {
 
 test('library only displays source-checked exercises', () => {
   const all = filterExercises({availableOnly:false},defaultSettings);
-  assert.equal(all.length,Object.keys(curatedSource).length);
-  assert.ok(all.every(item=>Object.hasOwn(curatedSource,item.id)));
-  assert.ok(all.every(item=>Object.hasOwn(exercises,item.id)));
+  const variantIds = all.flatMap(item=>item.variants.map(variant=>variant.id));
+  assert.deepEqual(variantIds.sort(),Object.keys(curatedSource).sort());
+  assert.ok(variantIds.every(id=>Object.hasOwn(exercises,id)));
+  assert.equal(new Set(all.map(item=>item.name)).size,all.length);
 });
 
-test('library search normalizes half-width characters and whitespace', () => {
+test('shared stretches appear once under either use while retaining phase-specific availability', () => {
+  for (const [id,cooldownId] of [
+    ['calf-stretch','cool-calf'],['side-bend','cool-side'],['sit-ham','cool-sit-ham'],
+    ['sit-hips','cool-sit-hip'],['back-ham','cool-back-ham']
+  ]) {
+    const item = libraryExercise(id);
+    const {name:query} = item;
+    assert.equal(exercises[cooldownId].name,query);
+    assert.deepEqual(frames(exercises[cooldownId]),frames(exercises[id]));
+    assert.deepEqual(item.types,['stretch','cool']);
+    assert.deepEqual(item.steps,exercises[cooldownId].steps);
+    for (const type of ['', 'stretch', 'cool']) {
+      assert.deepEqual(filterExercises({query,type},defaultSettings).map(move=>move.id),[id]);
+    }
+    const settings = {...defaultSettings,excluded:[cooldownId]};
+    assert.equal(filterExercises({query,availableOnly:true},settings).length,1);
+    assert.equal(filterExercises({query,type:'cool',availableOnly:true},settings).length,0);
+    assert.equal(filterExercises({query,type:'cool'},settings)[0].available,false);
+  }
+  assert.deepEqual(libraryExercise('warm-sit-hip').types,['warm']);
+  assert.notEqual(libraryExercise('warm-sit-hip').name,libraryExercise('sit-hips').name);
+});
+
+test('existing cooldown IDs survive backup restore in plans and history', () => {
+  const row = {id:'cool-calf',seconds:30,rest:10};
+  const saved = [{id:'saved-stretch',name:'柔軟性',options:{purpose:'stretch',minutes:10,poses:['stand']},
+    rows:[{id:'march',seconds:30,rest:0},{id:'side-bend',seconds:30,rest:10},row]}];
+  const history = [{id:'history-stretch',name:'柔軟性',date:'2026-01-01T00:00:00.000Z',active:30,ended:false,
+    rating:'',results:[{row,status:'done',rating:''}]}];
+  const restored = validate({version:1,settings:defaultSettings,saved,history});
+  assert.deepEqual(restored.saved,saved);
+  assert.deepEqual(restored.history,history);
+});
+
+test('library search normalizes kana, half-width characters, and whitespace', () => {
   const matches = filterExercises({query:'  ｽｸﾜｯﾄ  ',availableOnly:false},defaultSettings);
   assert.ok(matches.some(item=>item.id==='squat'));
+  assert.deepEqual(filterExercises({query:'すくわっと'},defaultSettings),matches);
   assert.deepEqual(filterExercises({query:'該当しない検索語'},defaultSettings),[]);
+});
+
+test('library search offers movement types and finds phase exercises by movement', () => {
+  assert.deepEqual(Object.keys(libraryTypes),['strength','stretch','cardio']);
+  assert.ok(filterExercises({query:'足踏み'},defaultSettings).some(item=>item.id==='march'));
+  assert.ok(filterExercises({query:'呼吸'},defaultSettings).some(item=>item.id==='sit-breathe'));
+  for (const query of ['準備運動','整理運動']) {
+    assert.deepEqual(filterExercises({query},defaultSettings),[]);
+  }
 });
 
 test('library combines posture, exercise type, and available settings', () => {
@@ -82,6 +127,8 @@ test('library combines posture, exercise type, and available settings', () => {
 test('library can be searched by equipment and target region', () => {
   const matches = filterExercises({query:'踏み台',availableOnly:false},defaultSettings);
   assert.ok(matches.some(item=>item.id==='step-up'));
+  const equipmentFree = filterExercises({query:'道具なし'},defaultSettings);
+  assert.ok(equipmentFree.length && equipmentFree.every(item=>!item.gear.length));
   assert.ok(filterExercises({query:'太もも',availableOnly:false},defaultSettings)
     .some(item=>item.load.includes('quad')));
 });

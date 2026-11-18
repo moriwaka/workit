@@ -1,9 +1,9 @@
 import {poses, gear, zones, purposes, phases, levels, exercises, catalog, isMainType, seatedDiagrams, diagramStages, footGuides} from './catalog.js?v=17';
-import {defaultSettings, ratingLabels, statusLabels, generate, estimate, alternatives, allowed, floorChanges, validate, repSeconds, explainPlan, menuMinutes, setLabels, sideSwitchSeconds} from './planner.js?v=19';
-import {attachDiagram, setDiagramFrame, announce, voiceAvailable, silence, unlockSound} from './media.js?v=20';
-import {Guide} from './guide.js?v=20';
+import {defaultSettings, ratingLabels, statusLabels, generate, estimate, alternatives, allowed, floorChanges, validate, repSeconds, explainPlan, menuMinutes, setLabels, sideSwitchSeconds} from './planner.js?v=20';
+import {attachDiagram, setDiagramFrame, announce, voiceAvailable, silence, unlockSound} from './media.js?v=21';
+import {Guide} from './guide.js?v=21';
 import {curatedSource, evidence, intensity, references} from './evidence.js?v=17';
-import {defaultLibraryFilters, exerciseTypes, filterExercises, libraryGear, libraryPoses, workoutBreakdown} from './workout-view.js?v=4';
+import {defaultLibraryFilters, exerciseTypes, filterExercises, libraryExercise, libraryGear, libraryPoses, libraryTypes, workoutBreakdown} from './workout-view.js?v=8';
 import {hiitGroups, hiitSubgroups} from './hiit-library.js?v=3';
 
 const app = document.querySelector('#app');
@@ -28,6 +28,7 @@ let messageTimer;
 let failedOptions = null;
 let planSuggestions = [];
 let libraryFilters = {...defaultLibraryFilters};
+const libraryPageSize = 24;
 let guideFullscreen = false;
 
 const escape = value => String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -59,6 +60,7 @@ function save() {
 
 function openDialog(markup) {
   dialog.innerHTML = markup;
+  dialog.querySelector('h2').id = 'dialog-title';
   dialog.showModal();
 }
 
@@ -222,7 +224,7 @@ function planNotice() {
     return '<p class="alert">この保存メニューには現在の種目集にない動作が含まれています。「メニューを作る」を押すと、出典のある種目で作り直せます。</p>';
   }
   if (!validPlan()) return '<p class="alert">現在の設定で使えない種目があります。差し替えるか、メニューを作り直してください。</p>';
-  if (floorChanges(plan.rows) > 1) return '<p class="alert">このメニューは立位と床を複数回切り替えます。「メニューを作る」を押すと、現在の条件で姿勢をまとめたメニューを作れます。</p>';
+  if (floorChanges(plan.rows,{includePhaseBoundaries:false}) > 1) return '<p class="alert">このメニューは各区間内で立位と床を合計2回以上切り替えます。「メニューを作る」を押すと、現在の条件で姿勢をまとめたメニューを作れます。</p>';
   return limitationNotice(plan.options,plan.rows);
 }
 
@@ -237,7 +239,7 @@ function limitationNotice(request, rows) {
     warm:'選んだ姿勢と設定で使えるウォームアップがありません。',
     cool:'選んだ姿勢と設定で使えるクールダウンがありません。',
     type:'選んだ姿勢と設定に合う種目が、片方の種類に限られています。',
-    sequence:`条件に合う本編の候補は ${limitation.eligibleMain} 種目です。${request.minutes>=30 ? '自動作成では、各種目を最大3セットまで組み込みます。' : '立位と床を往復せず、運動時間と休憩を含めて組みました。'}`,
+    sequence:`条件に合う本編の候補は ${limitation.eligibleMain} 種目です。${request.minutes>=30 ? '自動作成では、各種目を最大3セットまで組み込みます。' : '本編では立位と床の切り替えを1回以内に抑えています。'}`,
     fit:'休憩・準備運動・整理運動を含めると、今の条件で本編まで組めません。'
   };
   const summary = rows
@@ -269,21 +271,34 @@ function renderLibrary() {
     ${option(key,label+'（すべて）',libraryFilters.classification)}
     ${Object.entries(hiitSubgroups).filter(([,sub])=>sub.group===key)
       .map(([id,sub])=>option(id,sub.name,libraryFilters.classification)).join('')}</optgroup>`).join('');
-  app.innerHTML = `<section class="page library-page"><div class="page-head"><h1>種目ライブラリ</h1><a class="btn" href="#plan">メニューを作る</a></div>
-    <p class="library-intro">種目を開くと、動き方・負荷の目安・参考資料を確認できます。</p>
+  const advanced = [libraryFilters.pose,libraryFilters.type,libraryFilters.classification,libraryFilters.availableOnly].some(Boolean);
+  app.innerHTML = `<section class="page library-page"><div class="page-head"><h1>種目ライブラリ</h1></div>
     <form id="library-filters" class="panel library-filters" role="search" aria-label="種目を検索">
-      <label class="stack library-query">種目名・部位・道具<input type="search" name="query" value="${escape(libraryFilters.query)}" placeholder="例：スクワット、太もも、壁" autocomplete="off"></label>
-      ${select('pose','姿勢',optionsFor(libraryPoses,libraryFilters.pose))}
-      ${select('type','種類',optionsFor(exerciseTypes,libraryFilters.type))}
-      ${select('classification','分類',classifications)}
-      <div class="library-checks">
-        <label><input type="checkbox" name="available" ${libraryFilters.availableOnly ? 'checked' : ''}>現在の設定でメニューに使える種目だけ</label>
+      <label class="stack">種目名・部位・道具<input type="search" name="query" value="${escape(libraryFilters.query)}" placeholder="例：スクワット、太もも、道具なし" autocomplete="off"></label>
+      <div class="library-quick">
         <label><input type="checkbox" name="noJump" ${libraryFilters.noJump ? 'checked' : ''}>ジャンプなし</label>
       </div>
-      <a href="#settings" class="subtle">道具・強度・除外する部位の設定</a>
+      <details class="library-advanced" ${advanced ? 'open' : ''}>
+        <summary>詳しい絞り込み <span id="library-active-count"></span></summary>
+        <div class="library-selects">
+          ${select('pose','姿勢',optionsFor(libraryPoses,libraryFilters.pose))}
+          ${select('type','運動の種類',optionsFor(libraryTypes,libraryFilters.type))}
+          ${select('classification','動きの分類',classifications)}
+        </div>
+        <label><input type="checkbox" name="available" ${libraryFilters.availableOnly ? 'checked' : ''}>現在の設定でメニューに使える種目だけ</label>
+        <a href="#settings" class="subtle">運動の条件を設定</a>
+      </details>
     </form>
-    <p id="library-count" class="subtle library-count" role="status" aria-live="polite"></p>
-    <div id="library-results" class="library-grid"></div></section>`;
+    <div class="library-result-head">
+      <p id="library-count" class="subtle" role="status"></p>
+      <div id="library-reset" hidden>${button('条件をクリア','reset-library','small')}</div>
+    </div>
+    <table id="library-table" class="data-table library-table" aria-label="種目一覧">
+      <thead><tr><th scope="col">種目</th><th scope="col">姿勢</th><th scope="col" class="library-conditions">道具・強度</th></tr></thead>
+      <tbody id="library-results"></tbody>
+    </table>
+    <div id="library-empty" class="empty" hidden><p>条件に合う種目がありません。</p><p>検索語や絞り込みを変えてみてください。</p></div>
+    <div id="library-more" class="library-more" hidden>${button('さらに表示','more-library')}</div></section>`;
   updateLibraryResults();
 }
 
@@ -291,18 +306,35 @@ function libraryEquipment(item) {
   return item.gear.map(key=>libraryGear[key]).join('・') || '道具なし';
 }
 
-function updateLibraryResults() {
+function updateLibraryResults(append=false) {
   const matches = filterExercises(libraryFilters,data.settings);
-  document.querySelector('#library-count').textContent = `${matches.length}種目`;
-  document.querySelector('#library-results').innerHTML = matches.length ? matches.map(item=> {
-    const available = allowed(item,{poses:Object.keys(selectablePoses)},data.settings);
-    const category = hiitGroups[item.group];
-    const status = levels[item.level]+(item.jumps ? ' · ジャンプあり' : '')+(available ? '' : ' · 現在の設定では対象外');
-    return `<article class="list-card library-card"><div class="section-title"><span class="mini">${category}</span><span class="badge">${libraryPoses[item.pose]}</span></div>
-      <h2>${escape(item.name)}</h2><p class="subtle">${escape(item.target)}</p>
-      <p class="subtle">${libraryEquipment(item)} · ${status}</p>
-      <div>${button('動きを確認','preview','',item.id,`aria-label="${escape(item.name)}の動きを確認"`)}</div></article>`;
-  }).join('') : `<div class="empty library-empty"><p>条件に合う種目がありません。</p><p>検索語や絞り込みを変えてみてください。</p>${button('絞り込みをリセット','reset-library')}</div>`;
+  const results = document.querySelector('#library-results');
+  const start = append ? results.rows.length : 0;
+  const end = Math.min(start + libraryPageSize,matches.length);
+  const {query,pose,type,classification,availableOnly,noJump} = libraryFilters;
+  const advancedCount = [pose,type,classification,availableOnly].filter(Boolean).length;
+  document.querySelector('#library-active-count').textContent = advancedCount ? `（${advancedCount}件を適用中）` : '';
+  document.querySelector('#library-reset').hidden = !(query || noJump || advancedCount);
+  document.querySelector('#library-count').textContent = `${matches.length}種目${end < matches.length ? `（${end}件を表示）` : ''}`;
+  document.querySelector('#library-table').hidden = !matches.length;
+  document.querySelector('#library-empty').hidden = Boolean(matches.length);
+  const rows = matches.slice(start,end).map(item=> {
+    const equipment = `${libraryEquipment(item)} · ${levels[item.level]}${item.jumps ? ' · ジャンプあり' : ''}`;
+    const availability = item.available ? '' : '<span class="library-meta">現在の設定では対象外</span>';
+    return `<tr><th scope="row">
+      <button type="button" class="move-name" data-action="preview-library" data-value="${item.id}" aria-haspopup="dialog" aria-label="${escape(item.name)}の動きを確認">${escape(item.name)}</button>
+      <span class="library-meta">${hiitGroups[item.group]} · ${escape(item.target)}</span>
+      <span class="library-compact-conditions"><span class="library-meta">${equipment}</span>${availability}</span>
+      </th><td><span class="badge">${libraryPoses[item.pose]}</span></td>
+      <td class="library-conditions">${equipment}${availability}</td></tr>`;
+  }).join('');
+  if (append) {
+    results.insertAdjacentHTML('beforeend',rows);
+    results.rows[start]?.querySelector('button').focus();
+  } else {
+    results.innerHTML = rows;
+  }
+  document.querySelector('#library-more').hidden = end >= matches.length;
 }
 
 function readLibraryFilters(form) {
@@ -322,11 +354,29 @@ function renderSaved() {
 }
 
 function renderHistory() {
-  app.innerHTML = `<section class="page"><div class="page-head"><h1>トレーニング履歴</h1><a class="btn" href="#settings">バックアップ</a></div>
-  <div class="stack">${data.history.length ? [...data.history].sort((a,b)=>Date.parse(b.date)-Date.parse(a.date)).map(entry => `<article class="panel list-card">
-  <h2>${escape(entry.name)}</h2><p class="subtle">${formatDate(entry.date)} · 運動 ${humanTime(entry.active)} · ${entry.ended ? '途中終了' : '終了'}${entry.rating ? ' · '+ratingLabels[entry.rating] : ''}</p>
-  <details><summary>種目別の記録（${entry.results.length}件）</summary><ul>${entry.results.map(res => `<li>${escape(exercises[res.row.id].name)} · ${statusLabels[res.status]}${res.rating ? ' · '+ratingLabels[res.rating] : ''} <span class="subtle">（予定 ${duration(res.row)}）</span></li>`).join('')}</ul></details>
-  <div>${button('削除','delete-history-dialog','danger small',entry.id)}</div></article>`).join('') : '<p class="empty">トレーニングの記録はまだありません。</p>'}</div></section>`;
+  const entries = [...data.history].sort((a,b)=>Date.parse(b.date)-Date.parse(a.date));
+  app.innerHTML = `<section class="page"><div class="page-head"><h1 id="history-title" tabindex="-1">トレーニング履歴</h1><a class="btn" href="#settings">バックアップ</a></div>
+  ${entries.length ? `<table class="data-table history-table" aria-labelledby="history-title">
+    <thead><tr><th scope="col">メニュー・日時</th><th scope="col">運動時間</th><th scope="col">結果</th></tr></thead>
+    <tbody>${entries.map(entry => `<tr><th scope="row">
+      <button type="button" class="move-name" data-action="history-detail" data-value="${escape(entry.id)}" aria-haspopup="dialog" aria-describedby="history-date-${escape(entry.id)}">${escape(entry.name)}</button>
+      <time class="subtle history-meta" id="history-date-${escape(entry.id)}" datetime="${escape(entry.date)}">${formatDate(entry.date)}</time></th>
+      <td>${humanTime(entry.active)}</td>
+      <td>${entry.ended ? '途中終了' : '終了'}${entry.rating ? `<span class="subtle history-meta">${ratingLabels[entry.rating]}</span>` : ''}</td></tr>`).join('')}
+    </tbody></table>` : '<p class="empty">トレーニングの記録はまだありません。</p>'}</section>`;
+}
+
+function historyDetail(id) {
+  const entry = data.history.find(item=>item.id===id);
+  if (!entry) return;
+  openDialog(`<header class="preview-head">
+    <div><h2 tabindex="-1" autofocus>${escape(entry.name)}</h2><p class="subtle">${formatDate(entry.date)}</p></div>
+    ${button('閉じる','close','small')}
+    </header>
+    <p>運動 ${humanTime(entry.active)} · ${entry.ended ? '途中終了' : '終了'}${entry.rating ? ' · '+ratingLabels[entry.rating] : ''}</p>
+    <h3>種目別の記録（${entry.results.length}件）</h3>
+    ${entry.results.length ? `<ul class="history-results">${entry.results.map(res => `<li>${escape(exercises[res.row.id].name)} · ${statusLabels[res.status]}${res.rating ? ' · '+ratingLabels[res.rating] : ''} <span class="subtle">（予定 ${duration(res.row)}）</span></li>`).join('')}</ul>` : '<p class="subtle">種目別の記録はありません。</p>'}
+    <div class="actions end">${button('この履歴を削除','delete-history-dialog','danger',entry.id)}</div>`);
 }
 
 function voiceStatus() {
@@ -690,6 +740,7 @@ document.addEventListener('click',event => {
       renderLibrary();
       document.querySelector('#library-filters input').focus();
       break;
+    case 'more-library': updateLibraryResults(true); break;
     case 'fullscreen': toggleFullscreen(); break;
     case 'close': dialog.close(); break;
     case 'apply-plan-suggestion': {
@@ -699,10 +750,14 @@ document.addEventListener('click',event => {
       }
       break;
     }
-    case 'preview': {
-      const item = exercises[value];
-      openDialog(`<h2>${escape(item.name)}</h2><p class="subtle">${details(item)}</p>${diagram(item)}${description(item)}
-        <div class="actions end">${button('閉じる','close')}</div>`);
+    case 'preview':
+    case 'preview-library': {
+      const item = action==='preview-library' ? libraryExercise(value) : exercises[value];
+      const type = action==='preview-library' ? libraryTypes[item.type] : exerciseTypes[item.type];
+      openDialog(`<header class="preview-head">
+        <div><h2 tabindex="-1" autofocus>${escape(item.name)}</h2><p class="subtle">${[type,details(item)].filter(Boolean).join(' · ')}</p></div>
+        ${button('閉じる','close','small')}
+        </header>${diagram(item)}${description(item)}`);
       initDiagrams(dialog);
       break;
     }
@@ -738,7 +793,11 @@ document.addEventListener('click',event => {
       break;
     }
     case 'delete-plan-dialog': confirmDialog('保存メニューを削除する','このメニューを一覧から削除します。','delete-plan',value,'削除する'); break;
-    case 'delete-history-dialog': confirmDialog('履歴を削除する','このトレーニングの記録を削除します。','delete-history',value,'削除する'); break;
+    case 'history-detail': historyDetail(value); break;
+    case 'delete-history-dialog':
+      dialog.close();
+      confirmDialog('履歴を削除する','このトレーニングの記録を削除します。','delete-history',value,'削除する');
+      break;
     case 'delete-plan':
     case 'delete-history': {
       const key = action === 'delete-plan' ? 'saved' : 'history';
@@ -746,6 +805,7 @@ document.addEventListener('click',event => {
       save();
       dialog.close();
       route();
+      if (action==='delete-history') document.querySelector('#history-title')?.focus();
       break;
     }
     case 'start-dialog':

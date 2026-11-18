@@ -71,9 +71,14 @@ function matchesPurpose(type,purpose) {
   return purpose==='mixed' ? ['strength','stretch'].includes(type) : type===purpose;
 }
 
-export function floorChanges(rows) {
-  return rows.slice(1).reduce((count,row,index) =>
-    count + floorChange(exercises[rows[index].id].pose,exercises[row.id].pose),0);
+export function floorChanges(rows,{includePhaseBoundaries=true}={}) {
+  const phase = item => isMainType(item.type) ? 'main' : item.type;
+  return rows.slice(1).reduce((count,row,index) => {
+    const previous = exercises[rows[index].id];
+    const current = exercises[row.id];
+    if (!includePhaseBoundaries && phase(previous)!==phase(current)) return count;
+    return count + floorChange(previous.pose,current.pose);
+  },0);
 }
 
 const phaseExercises = {
@@ -157,7 +162,7 @@ export function generate(options, settings, random = Math.random) {
   }
 
   let beam = [{rows:[], counts:new Uint8Array(moves.length), distinct:0, types:0, time:0,
-    mainFloorChanges:0, mainPoseChanges:0, preference:0}];
+    floorChanges:0, poseChanges:0, preference:0}];
   let best = null;
   for (let round = 0; round < maxRounds && beam.length; round++) {
     const expanded = [];
@@ -172,21 +177,15 @@ export function generate(options, settings, random = Math.random) {
         const total = time+warmTime+coolTime;
         const length = candidate.rows.length+1;
         if (!opening.length || !closing.length || total>seconds || length+opening.length+closing.length>maxPlanRows) continue;
-        const firstPose = first.item.pose;
         const lastPose = candidate.lastPose ?? item.pose;
-        const warmPose = exercises[opening.at(-1).id].pose;
-        const coolPose = exercises[closing[0].id].pose;
-        const mainFloorChanges = candidate.mainFloorChanges+floorChange(lastPose,item.pose);
-        const standingFloorChanges = mainFloorChanges+floorChange(warmPose,firstPose)+floorChange(item.pose,coolPose);
+        const standingFloorChanges = candidate.floorChanges+floorChange(lastPose,item.pose);
         if (standingFloorChanges > 1) continue;
-        const mainPoseChanges = candidate.mainPoseChanges + Number(lastPose !== item.pose);
         expanded.push({
           parent:candidate,move,first,lastPose:item.pose,length,
           distinct:candidate.distinct+Number(repetitions===0),
           types:candidate.types|mainTypeBits[item.type],time,total,opening,closing,
-          mainFloorChanges, mainPoseChanges,
           floorChanges:standingFloorChanges,
-          poseChanges:mainPoseChanges + Number(warmPose !== firstPose) + Number(item.pose !== coolPose),
+          poseChanges:candidate.poseChanges + Number(lastPose !== item.pose),
           preference:candidate.preference+move.priority
         });
       }
@@ -272,6 +271,8 @@ export function explainPlan(options, settings, rows) {
 
 export function alternatives(rows, index, options, settings) {
   const current = exercises[rows[index].id];
+  const changes = plan=>floorChanges(plan,{includePhaseBoundaries:false});
+  const maxChanges = Math.max(1,changes(rows));
   const candidates = catalog.filter(item => item.id !== current.id && allowed(item, options, settings)
     && (item.type === current.type || (options.purpose === 'mixed'
       && ['strength','stretch'].includes(item.type) && ['strength','stretch'].includes(current.type))))
@@ -289,8 +290,8 @@ export function alternatives(rows, index, options, settings) {
   }).filter(row => {
     const changed = rows.with(index, row);
     return estimate(changed) <= options.minutes * 60
-      && floorChanges(changed) <= Math.max(1,floorChanges(rows));
-  }).sort((a,b) => floorChanges(rows.with(index,a)) - floorChanges(rows.with(index,b))
+      && changes(changed) <= maxChanges;
+  }).sort((a,b) => changes(rows.with(index,a)) - changes(rows.with(index,b))
     || Number(exercises[b.id].pose === current.pose) - Number(exercises[a.id].pose === current.pose));
 }
 
