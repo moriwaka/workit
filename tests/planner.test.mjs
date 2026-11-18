@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {catalog, exercises, poses, purposes} from '../catalog.js?v=7';
-import {curatedSource, evidence, intensity, references} from '../evidence.js?v=7';
-import {allowed, alternatives, defaultSettings, estimate, floorChanges, fullSequence, generate, validate, explainPlan} from '../planner.js?v=7';
+import {catalog, exercises, poses, purposes} from '../catalog.js?v=8';
+import {curatedSource, evidence, intensity, references} from '../evidence.js?v=8';
+import {allowed, alternatives, defaultSettings, estimate, floorChanges, fullSequence, generate, validate, explainPlan} from '../planner.js?v=8';
 
 const defaultOptions = {purpose:'stretch', minutes:15, poses:Object.keys(poses)};
 
@@ -18,7 +18,7 @@ test('the reported floor-to-standing round trips count across warm-up and cooldo
 
 test('generator keeps standing and floor in blocks while honoring load, available equipment, and time', () => {
   let plans = 0;
-  for (let mask=1; mask<32; mask++) {
+  for (let mask=1; mask<(1<<Object.keys(poses).length); mask++) {
     for (const purpose of Object.keys(purposes)) {
       for (const minutes of [10,15,20,30,40]) {
         for (const settings of [
@@ -135,4 +135,21 @@ test('limited plans report duration and only offer changes backed by an eligible
   const fit = {...options,poses:['stand']};
   const complete = generate(fit,defaultSettings,()=>0);
   assert.equal(explainPlan({...fit,minutes:estimate(complete)/60},defaultSettings,complete),null);
+});
+
+test('expanded catalog provides beginner options without equipment or shoulder load', () => {
+  const settings = {...defaultSettings,gear:[],blocked:['shoulder']};
+  const standing = {purpose:'mixed',minutes:15,poses:['stand']};
+  const candidate = generate(standing,settings,()=>.42);
+  assert.ok(candidate);
+  assert.ok(allowed(exercises['mountain-basic'],standing,settings));
+  assert.ok(allowed(exercises['elbow-range'],standing,settings));
+  assert.ok(!allowed(exercises.mountain,standing,settings));
+  const side = {...standing,poses:['side'],purpose:'strength'};
+  const sidePlan = generate(side,settings,()=>.42);
+  assert.ok(sidePlan, 'side-lying should work as the only enabled posture');
+  assert.ok(sidePlan.every(row=>exercises[row.id].pose==='side'));
+  assert.ok(sidePlan.some(row=>row.id==='side-clam' || row.id==='side-leg-raise'));
+  assert.ok(!allowed(exercises['side-band-clam'],side,settings));
+  assert.ok(!allowed(exercises['quad-arm'],{...standing,poses:['all4']},{...defaultSettings,level:1,blocked:['forearm']}));
 });

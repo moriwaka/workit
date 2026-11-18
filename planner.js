@@ -1,5 +1,5 @@
-import {catalog, exercises, poses, gear, zones, purposes} from './catalog.js?v=7';
-import {curatedSource} from './evidence.js?v=7';
+import {catalog, exercises, poses, gear, zones, purposes} from './catalog.js?v=8';
+import {curatedSource} from './evidence.js?v=8';
 
 export const defaultSettings = {
   gear: ['wall'], blocked: [], excluded: [], level: 0, voice: true, volume: 75, known: [], adjustments: {}
@@ -28,7 +28,9 @@ export function dose(exercise, settings) {
     case 'warm': return {id:exercise.id, seconds:45, rest:12};
     case 'cool': return {id:exercise.id, seconds:45, rest:10};
     case 'stretch': return {id:exercise.id, seconds:Math.max(10,15 + settings.level * 3 + adjustment * 3) * (exercise.sides ? 2 : 1), rest:25 - adjustment * 3};
-    case 'strength': return {id:exercise.id, reps:(4 + settings.level * 2 + adjustment) * (exercise.sides ? 2 : 1), rest:30 - adjustment * 3};
+    case 'strength':
+      if (exercise.timed) return {id:exercise.id,seconds:2 * (10 + settings.level * 2 + adjustment),rest:30 - adjustment * 3};
+      return {id:exercise.id, reps:(4 + settings.level * 2 + adjustment) * (exercise.sides ? 2 : 1), rest:30 - adjustment * 3};
   }
 }
 
@@ -70,10 +72,11 @@ export function floorChanges(rows) {
 }
 
 const phaseExercises = {
-  stand:{warm:['march','warm-heel','warm-knee','warm-shoulder'],cool:['slow-march','cool-calf','cool-side']},
-  sit:{warm:['sit-ankles','warm-sit-hip'],cool:['cool-sit-ankles','cool-sit-ham','cool-sit-hip','sit-breathe']},
+  stand:{warm:['march','warm-heel','warm-knee','warm-shoulder','warm-elbow'],cool:['slow-march','cool-calf','cool-side','cool-stand-breath']},
+  sit:{warm:['sit-ankles','warm-sit-hip','warm-sit-wrist'],cool:['cool-sit-ankles','cool-sit-ham','cool-sit-hip','sit-breathe']},
   back:{warm:['heel-slide','warm-pelvic'],cool:['cool-slide','cool-back-ham','back-breathe']},
-  all4:{warm:['rock-warm'],cool:['rock-cool']}
+  all4:{warm:['rock-warm'],cool:['rock-cool']},
+  side:{warm:['warm-side-clam'],cool:['cool-side-clam']}
 };
 
 function phasePlan(pool, targetPose, phase, minutes, firstMove) {
@@ -83,6 +86,9 @@ function phasePlan(pool, targetPose, phase, minutes, firstMove) {
   const ids = candidatePoses.map(pose=>phaseExercises[pose]?.[phase].filter(id=>available.has(id)) ?? [])
     .find(items=>items.length);
   if (!ids) return [];
+  if (ids.includes('march') && ids.includes('warm-elbow')) ids.splice(ids.indexOf('warm-elbow'),1);
+  if (ids.includes('slow-march') && ids.includes('cool-stand-breath')) ids.splice(ids.indexOf('cool-stand-breath'),1);
+  if (ids.includes('sit-ankles') && ids.includes('warm-sit-wrist')) ids.splice(ids.indexOf('warm-sit-wrist'),1);
   const standard = minutes >= 20;
   if (phase === 'warm' && firstMove?.load.includes('shoulder') && ids.includes('warm-shoulder')) {
     ids.splice(ids.indexOf('warm-shoulder'),1);

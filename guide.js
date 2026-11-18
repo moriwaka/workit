@@ -1,6 +1,6 @@
-import {exercises, phases} from './catalog.js?v=7';
-import {compatible, effort, nextLoad, repSeconds} from './planner.js?v=7';
-import {announce, silence} from './media.js?v=7';
+import {exercises, phases} from './catalog.js?v=8';
+import {compatible, effort, nextLoad, repSeconds} from './planner.js?v=8';
+import {announce, silence} from './media.js?v=8';
 
 export class Guide {
   constructor(plan, settings, callbacks) {

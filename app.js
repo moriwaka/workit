@@ -1,8 +1,8 @@
-import {poses, gear, zones, purposes, phases, levels, exercises, catalog, seatedDiagrams} from './catalog.js?v=7';
-import {defaultSettings, ratingLabels, statusLabels, generate, estimate, alternatives, allowed, fullSequence, floorChanges, validate, repSeconds, explainPlan, menuMinutes} from './planner.js?v=7';
-import {attachDiagram, setDiagramFrame, announce, voiceAvailable, silence, unlockSound} from './media.js?v=7';
-import {Guide} from './guide.js?v=7';
-import {curatedSource, evidence, intensity, references} from './evidence.js?v=7';
+import {poses, gear, zones, purposes, phases, levels, exercises, catalog, seatedDiagrams} from './catalog.js?v=8';
+import {defaultSettings, ratingLabels, statusLabels, generate, estimate, alternatives, allowed, fullSequence, floorChanges, validate, repSeconds, explainPlan, menuMinutes} from './planner.js?v=8';
+import {attachDiagram, setDiagramFrame, announce, voiceAvailable, silence, unlockSound} from './media.js?v=8';
+import {Guide} from './guide.js?v=8';
+import {curatedSource, evidence, intensity, references} from './evidence.js?v=8';
 
 const app = document.querySelector('#app');
 const dialog = document.querySelector('#dialog');
@@ -253,10 +253,12 @@ function renderSafety() {
   app.innerHTML = `<section class="page"><div class="page-head"><h1>運動前の確認・出典</h1></div><article class="panel readable">
     ${safetyContent}<h2>ウォームアップとクールダウン</h2>
     <p>準備運動は軽い足踏みなどから始め、本編で使う関節を小さく動かします。整理運動は徐々にペースを落とし、姿勢や道具の条件が合えば軽いストレッチを入れます。短時間・低強度の室内メニューや、床の姿勢に限定したメニューでは時間を調整します。</p>
+    <h2>リハビリ資料・ヨガの種目</h2>
+    <p>リハビリ資料は動作を確認するために使っています。治療中は担当の医師や理学療法士の指示を優先してください。ヨガは呼吸を止めず、関節を強く押し込まずに行い、姿勢を保ちづらいときはスキップできます。</p>
     <h2>強度の決め方</h2>
     <p>準備運動は会話できる軽いペースから始めます。筋トレは無理なく続けられる回数から始め、フォームと運動後のきつさを見て徐々に調整します。ストレッチは軽い張りを目安にします。表示する回数・秒数は workit の開始設定です。</p>
     <h2>参考資料</h2><ul>
-    <li>${sourceLink('jpStrength')}</li><li>${sourceLink('cdc')}</li>
+    <li>${sourceLink('jpStrength')}</li><li>${sourceLink('cdc')}</li><li>${sourceLink('yogaSafety')}</li>
     <li>${sourceLink('nhsWarm')}</li><li>${sourceLink('nhsStretch')}</li><li>${sourceLink('nhsCool')}</li>
     <li><a href="https://kennet.mhlw.go.jp/information/information/exercise/s-00-008.html" target="_blank" rel="noopener noreferrer">厚生労働省「身体活動・運動を安全に行うためのポイント」</a></li>
     <li><a href="https://www.heart.org/en/healthy-living/exercise-and-physical-activity/fitness-basics/warm-up-cool-down" target="_blank" rel="noopener noreferrer">American Heart Association「Warm Up, Cool Down」</a></li>

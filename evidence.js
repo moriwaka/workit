@@ -34,6 +34,20 @@ export const references = {
   spinalTwist: ['Mayo Clinic「Seated spinal twist」','https://www.mayoclinic.org/healthy-lifestyle/stress-management/multimedia/seated-spinal-twist/vid-20453586'],
   straightLeg: ['Cambridge University Hospitals「Early knee exercises」','https://www.cuh.nhs.uk/our-services/physiotherapy-outpatients/outpatient-physio-resources/resources/knee/early-knee-exercises/'],
   kneeRollNhs: ['Maidstone and Tunbridge Wells NHS「Knee rolls」（PDF）','https://www.mtw.nhs.uk/wp-content/uploads/2025/10/Management-of-Lower-Back-PainSTANDARD-PRINT-LEAFLET.pdf'],
+  elbows: ['Cambridge University Hospitals「Elbow range of movement exercises」','https://www.cuh.nhs.uk/patient-information/elbow-range-of-movement-exercises/'],
+  wristNhs: ['Royal United Hospitals Bath NHS「Wrist Exercises」（PDF）','https://ruh.nhs.uk/patients/patient_information/HTH024_Wrist_Exercises.pdf'],
+  wallSlides: ['Oxford University Hospitals NHS「Wall slides」（PDF）','https://www.ouh.nhs.uk/media/ajkghmek/86726pfps.pdf'],
+  mountainCleveland: ['Cleveland Clinic「Mountain Pose」','https://health.clevelandclinic.org/mountain-pose'],
+  mountainMayo: ['Mayo Clinic「Mountain pose」','https://www.mayoclinic.org/healthy-lifestyle/stress-management/multimedia/mountain-pose/vid-20453579'],
+  warriorMayo: ['Mayo Clinic（NKC Health 掲載）「Warrior 1」','https://healthlibrary.nkchealth.org/videoresults?targetUrl=https%3A%2F%2Fcdapi.mayoclinic.org%2Fapi%2Fv2%2Fcontent%2FVID-20453585'],
+  catCowMayo: ['Mayo Clinic「Cat/cow pose」','https://www.mayoclinic.org/healthy-lifestyle/stress-management/multimedia/cat-cow-pose/vid-20453581'],
+  childMayo: ['Mayo Clinic「Child’s pose」','https://www.mayoclinic.org/healthy-lifestyle/stress-management/multimedia/childs-pose/vid-20453580'],
+  yogaSafety: ['NIH NCCIH「Yoga: Effectiveness and Safety」','https://www.nccih.nih.gov/health/yoga-effectiveness-and-safety'],
+  singleHug: ['South Tees Hospitals NHS「Single knee hug」','https://www.southtees.nhs.uk/resources/single-knee-hug/'],
+  deadBugNhs: ['Frimley Health NHS「Dead Bug」','https://www.fhft.nhs.uk/patients-and-visitors/patient-information-library/pelvic-health-core-and-diastasis-recti-abdominis-exercises/submit/7561'],
+  clamNhs: ['Cambridge University Hospitals「Hip replacement: advice and exercises」','https://www.cuh.nhs.uk/patient-information/hip-replacement-total-advice-and-exercises-following/'],
+  bandClamNhs: ['Tyneside Integrated Musculoskeletal Service「Banded clamshell」（PDF）','https://www.tims.nhs.uk/wp-content/uploads/2024/08/TIMS-Coccydynia-June2024.pdf'],
+  openBookNhs: ['Leeds Teaching Hospitals NHS「Open book」（PDF）','https://flipbooks.leedsth.nhs.uk/LN005629.pdf'],
   breathing: ['NHS「Breathing exercises for stress」','https://www.nhs.uk/mental-health/self-help/guides-tools-and-activities/breathing-exercises-for-stress/']
 };
 
@@ -83,7 +97,35 @@ export const evidence = {
   'kneel-hinge': {name:'Tall-kneeling hip hinge',target:'お尻・股関節と姿勢を保つ体幹',refs:['ace'],variant:true}
 };
 
+const supplementalExercises = {
+  'elbow-range':['elbows','Elbow flexion and extension','肘を曲げ伸ばしする'],
+  'forearm-turn':['elbows','Forearm pronation and supination','肘の周り・前腕'],
+  'wall-slide':['wallSlides','Wall slide','太ももの前とお尻'],
+  'mountain-basic':['mountainCleveland','Mountain pose / Tadasana','足裏で体を支え、体幹の姿勢を整える'],
+  mountain:['mountainMayo','Mountain pose / Tadasana','肩・背中上部を伸ばす'],
+  'warrior-one':['warriorMayo','Warrior I / Virabhadrasana I','太もも・股関節・肩'],
+  'sit-wrist':['wristNhs','Wrist flexion and extension','手首と前腕'],
+  'sit-upper':['chestStretch','Seated upper back stretch','肩甲骨の間・背中上部'],
+  'knee-hug':['singleHug','Single knee hug','腰と股関節の後ろ。腕で脚を支える'],
+  'abdominal-press':['core','Single-leg abdominal press','腹部・股関節の前'],
+  'dead-bug':['deadBugNhs','Dead bug','腹部を中心に体幹を支える'],
+  'side-clam':['clamNhs','Clamshell','お尻の横（中殿筋など）'],
+  'side-leg-raise':['clamNhs','Side-lying hip abduction','お尻の横・太もも外側'],
+  'side-band-clam':['bandClamNhs','Banded clamshell','お尻の横（中殿筋など）'],
+  'side-quad':['nhsStretch','Side-lying quadriceps stretch','太ももの前（大腿四頭筋）'],
+  'open-book':['openBookNhs','Open book','胸・肩・背中上部'],
+  'cat-cow':['catCowMayo','Cat/cow pose','背中と腰を動かす。手と膝で支える'],
+  'child-pose':['childMayo','Child’s pose / Balasana','背中・股関節・肩まわり'],
+  'quad-arm':['core','Quadruped arm reach','体幹と肩。反対側の手で体を支える']
+};
+for (const [id,[key,name,target]] of Object.entries(supplementalExercises)) {
+  evidence[id] = {name,target,refs:[key],demo:key};
+}
+
 const stageSources = {
+  'warm-sit-wrist':['sit-wrist','wristNhs'], 'warm-side-clam':['side-clam','clamNhs'],
+  'cool-side-clam':['side-clam','clamNhs'], 'cool-stand-breath':['sit-breathe','breathing'],
+  'warm-elbow':['elbow-range','elbows'],
   'warm-heel':['march','nhsWarm'], 'warm-shoulder':['march','nhsWarm'], 'warm-knee':['squat','nhsWarm'],
   'warm-sit-hip':['sit-hips','aceButterfly'], 'warm-pelvic':['pelvic','floor'],
   'cool-slide':['heel-slide','floor'], 'cool-sit-ankles':['sit-ankles','longAnkles'],
@@ -109,6 +151,7 @@ export const intensity = {
 // Existing exercises with a matching movement and compatible setup.
 // Keep retired IDs in the catalog for reading old backups and history.
 export const curatedSource = {
+  ...Object.fromEntries(Object.entries(supplementalExercises).map(([id,[source]])=>[id,source])),
   ...Object.fromEntries(Object.entries(stageSources).map(([id,[,source]])=>[id,source])),
   march:'nhsWarm', 'slow-march':'nhsWarm',
   'sit-ankles':'longAnkles', 'sit-breathe':'floorBreath', 'heel-slide':'floor',

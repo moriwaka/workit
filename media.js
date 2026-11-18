@@ -1,4 +1,4 @@
-import {frames, seatedDiagrams} from './catalog.js?v=7';
+import {frames, seatedDiagrams} from './catalog.js?v=8';
 
 const pink = '#ed865f';
 const purple = '#523290';
@@ -68,10 +68,10 @@ function draw(canvas, exercise, first, last, ratio) {
     line(ctx,[[245,53],[245,200]],'#a68dc4',4);
     for (let y=65;y<190;y+=12) line(ctx,[[246,y],[254,y-8]],'#d6c6ec',1.5);
   }
-  if (exercise.motion==='toeRaise') {
+  if (['toeRaise','wallSlide'].includes(exercise.motion)) {
     line(ctx,[[111,44],[111,200]],'#a68dc4',4);
     for (let y=54;y<190;y+=12) line(ctx,[[110,y],[103,y-8]],'#d6c6ec',1.5);
-    if (ratio>.08) arrow(ctx,[[201,199],[200,180]]);
+    if (exercise.motion==='toeRaise' && ratio>.08) arrow(ctx,[[201,199],[200,180]]);
   }
   if (exercise.gear.includes('step')) {
     ctx.fillStyle = '#bba8df';
@@ -86,6 +86,8 @@ function draw(canvas, exercise, first, last, ratio) {
   line(ctx,[p.ls,p.rs],purple,9);
   line(ctx,[p.hip,p.lk,p.lf],purple,9);
   line(ctx,[p.ls,p.le,p.lh],purple);
+  if (p.lhTip) line(ctx,[p.lh,p.lhTip],'#ab431d',4);
+  if (p.rhTip) line(ctx,[p.rh,p.rhTip],'#ab431d',4);
   line(ctx,[p.rf,p.rt ?? [p.rf[0]+8,p.rf[1]+3]],farSide,seated ? 7 : 5);
   line(ctx,[p.lf,p.lt ?? [p.lf[0]+9,p.lf[1]+3]],purple,seated ? 7 : 5);
   disk(ctx,p.head,13,seated ? '#bfa7dd' : pink);
