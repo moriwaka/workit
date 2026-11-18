@@ -1,10 +1,10 @@
-import {poses, gear, zones, purposes, phases, levels, exercises, catalog, seatedDiagrams, diagramStages, footGuides} from './catalog.js?v=16';
-import {defaultSettings, ratingLabels, statusLabels, generate, estimate, alternatives, allowed, floorChanges, validate, repSeconds, explainPlan, menuMinutes, setLabels, sideSwitchSeconds} from './planner.js?v=18';
-import {attachDiagram, setDiagramFrame, announce, voiceAvailable, silence, unlockSound} from './media.js?v=19';
-import {Guide} from './guide.js?v=19';
-import {curatedSource, evidence, intensity, references} from './evidence.js?v=16';
-import {defaultLibraryFilters, exerciseTypes, filterExercises, hiitById, libraryGear, libraryPoses, workoutBreakdown} from './workout-view.js?v=3';
-import {hiitDifficulty, hiitGroups, hiitSubgroups} from './hiit-library.js?v=2';
+import {poses, gear, zones, purposes, phases, levels, exercises, catalog, isMainType, seatedDiagrams, diagramStages, footGuides} from './catalog.js?v=17';
+import {defaultSettings, ratingLabels, statusLabels, generate, estimate, alternatives, allowed, floorChanges, validate, repSeconds, explainPlan, menuMinutes, setLabels, sideSwitchSeconds} from './planner.js?v=19';
+import {attachDiagram, setDiagramFrame, announce, voiceAvailable, silence, unlockSound} from './media.js?v=20';
+import {Guide} from './guide.js?v=20';
+import {curatedSource, evidence, intensity, references} from './evidence.js?v=17';
+import {defaultLibraryFilters, exerciseTypes, filterExercises, libraryGear, libraryPoses, workoutBreakdown} from './workout-view.js?v=4';
+import {hiitGroups, hiitSubgroups} from './hiit-library.js?v=3';
 
 const app = document.querySelector('#app');
 const dialog = document.querySelector('#dialog');
@@ -19,7 +19,7 @@ try {
 } catch { loadError = true; }
 const selectablePoses = Object.fromEntries(Object.entries(poses).filter(([pose]) =>
   catalog.some(item => item.pose === pose && Object.hasOwn(curatedSource,item.id))));
-let options = {purpose:'mixed', minutes:15, poses:Object.keys(selectablePoses)};
+let options = {purpose:'mixed', minutes:15, poses:Object.keys(selectablePoses), noJump:true};
 let plan = null;
 let planSettingsKey = '';
 let session = null;
@@ -66,7 +66,7 @@ function confirmDialog(title, message, action, value='', label='確定') {
   openDialog(`<h2>${title}</h2><p>${message}</p><div class="actions end">${button('キャンセル','close')}${button(label,action,'danger',value)}</div>`);
 }
 
-function diagram(item) {
+function diagram(item, otherSide=false) {
   const guide = seatedDiagrams[item.motion];
   const footGuide = item.diagram ?? footGuides[item.motion];
   const staged = item.diagram?.stages ?? diagramStages[item.motion];
@@ -76,11 +76,11 @@ function diagram(item) {
   positions.push(['play','アニメ']);
   const initial = item.still || matchMedia('(prefers-reduced-motion: reduce)').matches ? positions[0][0] : 'play';
   return `<figure class="diagram">
-    <canvas width="600" height="460" data-diagram="${item.id}" role="img" aria-label="${escape(item.name)}の動作図">${escape(item.name)}</canvas>
+    <canvas width="600" height="460" data-diagram="${item.id}"${otherSide ? ' data-side="other"' : ''} role="img" aria-label="${escape(item.name)}の動作図">${escape(item.name)}</canvas>
     ${item.still ? '' : `<div class="diagram-controls" role="group" aria-label="動作図の表示">
       ${positions.map(([mode,label]) => button(label,'diagram','small',mode,`aria-pressed="${mode===initial}"`)).join('')}</div>`}
     <div class="foot-key"><span><i class="heel-mark"></i>かかと</span><span><i class="toe-mark"></i>つま先</span>${footGuide || item.motion==='heelDig' ? '<span><i class="contact-mark"></i>床・台に触れる部分</span>' : ''}</div>
-    ${footGuide ? `<figcaption>${escape(footGuide.caption)}</figcaption>` : ''}
+    ${footGuide?.caption ? `<figcaption>${escape(footGuide.caption)}</figcaption>` : ''}
     ${item.motion==='heelDig' ? '<figcaption>前に出した足は、かかとだけ床につけ、つま先を上へ向けます。</figcaption>' : ''}
     ${item.motion==='kneeRoll' ? '<figcaption>両肩を床につけたまま、そろえた膝を片側へ倒し、中央に戻してから反対側へ。</figcaption>' : ''}
     ${guide?.labels.length ? `<figcaption>${guide.labels.map((label,index) => `<span>${guide.labels.length>1 ? (index===0 ? '<strong>開始</strong> ' : '<strong>動き</strong> ') : ''}${escape(label)}</span>`).join('')}</figcaption>` : ''}
@@ -90,7 +90,7 @@ function diagram(item) {
 function initDiagrams(container = document) {
   container.querySelectorAll('canvas[data-diagram]').forEach(node => {
     const {diagram:id} = node.dataset;
-    attachDiagram(node,exercises[id] ?? hiitById[id]);
+    attachDiagram(node,exercises[id]);
   });
 }
 
@@ -101,8 +101,7 @@ function sourceLink(key, text) {
 
 function description(item) {
   const entry = evidence[item.id];
-  const sources = entry.refs.map(key => '<li>'+sourceLink(key)+'</li>').join('');
-  const hiit = hiitById[item.id];
+  const sources = entry.refs.filter(key=>key!==curatedSource[item.id]).map(key => '<li>'+sourceLink(key)+'</li>').join('');
   return `<ol>${item.steps.map(step => `<li>${escape(step)}</li>`).join('')}</ol>
     <p class="subtle"><strong>主に使う・伸ばす部位</strong>　${escape(entry.target)}</p>
     <p class="subtle"><strong>強度の目安</strong>　${escape(intensity[item.type])}</p>
@@ -112,9 +111,7 @@ function description(item) {
       ${entry.name ? `<p class="subtle">${escape(entry.name)}</p>` : ''}
       ${curatedSource[item.id] ? `<p class="subtle">種目の出典　${sourceLink(curatedSource[item.id])}</p>` : ''}
       <p class="subtle">表示する回数や秒数は、workit での開始目安です。</p>
-      <ul>${sources}</ul>
-      ${hiit ? `<p class="subtle"><strong>HIIT Builder での動き方</strong>　${escape(hiit.summary)}</p>
-        <ul>${hiitSourceLinks(hiit)}</ul>` : ''}</details>`;
+      ${sources ? `<ul>${sources}</ul>` : ''}</details>`;
 }
 
 function duration(row) {
@@ -127,7 +124,7 @@ function duration(row) {
 }
 
 function details(item) {
-  return [poses[item.pose], ...item.gear.map(key => gear[key])].join(' · ');
+  return [libraryPoses[item.pose], ...item.gear.map(key => gear[key])].join(' · ');
 }
 
 const hero = `<section class="hero">
@@ -150,6 +147,7 @@ function renderPlan() {
     <fieldset><legend>目的</legend><div class="chips">${choices(purposes,[options.purpose],'purpose','radio')}</div></fieldset>
     <fieldset><legend>所要時間の目安</legend><div class="chips">${menuMinutes.map(n => checkbox(n,`${n}分`,options.minutes===n,'minutes','radio')).join('')}</div></fieldset>
     <fieldset><legend>今日できる姿勢</legend><div class="chips">${choices(selectablePoses,options.poses,'pose')}</div></fieldset>
+    <div class="chips">${checkbox('yes','ジャンプなし',options.noJump,'noJump')}</div>
     <div class="subtle plan-settings"><p>強度 ${levels[data.settings.level]}　·　道具 ${data.settings.gear.map(key => gear[key]).join('、') || 'なし'}　<a href="#settings">変更</a></p>
       <p>除外中の部位 ${data.settings.blocked.map(key=>zones[key]).join('、') || 'なし'}</p></div>
     <button class="btn primary wide" type="submit">メニューを作る <span aria-hidden="true">→</span></button>
@@ -177,11 +175,12 @@ function planNeedsRefresh() {
   if (!plan) return false;
   const old = plan.options;
   return old.purpose!==options.purpose || old.minutes!==options.minutes
+    || Boolean(old.noJump)!==Boolean(options.noJump)
     || old.poses.length!==options.poses.length || old.poses.some(pose=>!options.poses.includes(pose))
     || generationSettings()!==planSettingsKey;
 }
 
-const mainRows = rows => rows.filter(row=>['strength','stretch'].includes(exercises[row.id].type));
+const mainRows = rows => rows.filter(row=>isMainType(exercises[row.id].type));
 
 function mainCount(rows) {
   const main = mainRows(rows);
@@ -259,8 +258,7 @@ function limitationNotice(request, rows) {
 }
 
 function validPlan() {
-  return plan && !planNeedsRefresh() && plan.rows.every(row => allowed(exercises[row.id],plan.options,data.settings)
-    && options.poses.includes(exercises[row.id].pose));
+  return plan && !planNeedsRefresh() && plan.rows.every(row=>allowed(exercises[row.id],plan.options,data.settings));
 }
 
 function renderLibrary() {
@@ -277,7 +275,7 @@ function renderLibrary() {
       <label class="stack library-query">種目名・部位・道具<input type="search" name="query" value="${escape(libraryFilters.query)}" placeholder="例：スクワット、太もも、壁" autocomplete="off"></label>
       ${select('pose','姿勢',optionsFor(libraryPoses,libraryFilters.pose))}
       ${select('type','種類',optionsFor(exerciseTypes,libraryFilters.type))}
-      ${select('classification','HIIT の分類',classifications)}
+      ${select('classification','分類',classifications)}
       <div class="library-checks">
         <label><input type="checkbox" name="available" ${libraryFilters.availableOnly ? 'checked' : ''}>現在の設定でメニューに使える種目だけ</label>
         <label><input type="checkbox" name="noJump" ${libraryFilters.noJump ? 'checked' : ''}>ジャンプなし</label>
@@ -293,40 +291,17 @@ function libraryEquipment(item) {
   return item.gear.map(key=>libraryGear[key]).join('・') || '道具なし';
 }
 
-function hiitSourceLinks(item) {
-  return item.sources.map(({title,url})=>`<li><a href="${escape(url)}" target="_blank" rel="noopener noreferrer">${escape(title)}（HIIT Builder）</a></li>`).join('');
-}
-
-function previewHiit(item) {
-  const referenceLinks = item.diagram?.references.map(({title,url})=>
-    `<li><a href="${escape(url)}" target="_blank" rel="noopener noreferrer">${escape(title)}</a></li>`).join('') ?? '';
-  openDialog(`<h2>${escape(item.name)}</h2>
-    <p class="subtle">${hiitGroups[item.group]} · ${hiitSubgroups[item.subgroup].name} · ${libraryPoses[item.pose]}</p>
-    ${item.diagram ? diagram(item) : ''}
-    <dl class="hiit-details">
-      <dt>動き方</dt><dd>${escape(item.summary)}</dd>
-      <dt>主に使う部位</dt><dd>${escape(item.target)}</dd>
-      <dt>道具</dt><dd>${libraryEquipment(item)}</dd>
-      <dt>強度・跳躍</dt><dd>${hiitDifficulty[item.difficulty]} · ${item.jumps ? 'ジャンプあり' : 'ジャンプなし'}</dd>
-    </dl>
-    <p class="subtle">${item.diagram ? '動作図の参考資料' : '出典ページで動作アニメーションや難易度を変えた例を確認できます。'}</p>
-    <ul>${referenceLinks}${hiitSourceLinks(item)}</ul>
-    <div class="actions end">${button('閉じる','close')}</div>`);
-  initDiagrams(dialog);
-}
-
 function updateLibraryResults() {
   const matches = filterExercises(libraryFilters,data.settings);
   document.querySelector('#library-count').textContent = `${matches.length}種目`;
   document.querySelector('#library-results').innerHTML = matches.length ? matches.map(item=> {
-    const available = item.supportsGuide && allowed(item,{poses:Object.keys(selectablePoses)},data.settings);
-    const category = item.hiit ? hiitGroups[item.hiit.group] : exerciseTypes[item.type];
-    const status = item.supportsGuide ? levels[item.level]+(available ? '' : ' · 現在の設定では対象外')
-      : hiitDifficulty[item.difficulty]+(item.jumps ? ' · ジャンプあり' : '')+' · 資料参照';
+    const available = allowed(item,{poses:Object.keys(selectablePoses)},data.settings);
+    const category = hiitGroups[item.group];
+    const status = levels[item.level]+(item.jumps ? ' · ジャンプあり' : '')+(available ? '' : ' · 現在の設定では対象外');
     return `<article class="list-card library-card"><div class="section-title"><span class="mini">${category}</span><span class="badge">${libraryPoses[item.pose]}</span></div>
       <h2>${escape(item.name)}</h2><p class="subtle">${escape(item.target)}</p>
       <p class="subtle">${libraryEquipment(item)} · ${status}</p>
-      <div>${button('動きを確認',item.supportsGuide ? 'preview' : 'preview-hiit','',item.id,`aria-label="${escape(item.name)}の動きを確認"`)}</div></article>`;
+      <div>${button('動きを確認','preview','',item.id,`aria-label="${escape(item.name)}の動きを確認"`)}</div></article>`;
   }).join('') : `<div class="empty library-empty"><p>条件に合う種目がありません。</p><p>検索語や絞り込みを変えてみてください。</p>${button('絞り込みをリセット','reset-library')}</div>`;
 }
 
@@ -443,7 +418,7 @@ function renderGuide(focus=false) {
     ${button('終了','guide-end-dialog','danger small')}</div></div>
     <progress class="progress" value="${guide.index}" max="${guide.plan.rows.length}" aria-label="トレーニングの進行"></progress>
     ${restBanner}
-    <div class="guide-grid">${diagram(item)}
+    <div class="guide-grid">${diagram(item,item.sides && !guide.firstSide)}
     <section class="panel guide-copy">
       ${betweenExercises ? '<p class="mini">次の種目の動き</p>' : `<p class="mini" id="guide-stage" tabindex="-1">${guide.paused ? '一時停止中' : stage}</p>
         <h2>${exerciseName}</h2>`}
@@ -454,7 +429,7 @@ function renderGuide(focus=false) {
       ${preview && guide.isMain && !guide.warmed ? '<p class="alert">準備運動を飛ばしました。本編へ進む前に準備運動を済ませてください。</p>' : ''}
       ${preview && guide.needsPreparation ? '<p class="alert">姿勢や道具が変わります。「準備できた」を押すまで次の種目は始まりません。</p>' : ''}
       <div class="guide-next"><span class="mini">${next ? 'この種目の次' : '最後の種目'}</span><p>${next ? `${escape(exercises[next.id].name)}${nextSet ? ` · ${nextSet}` : ''}` : '終わったら、今日の記録を確認しましょう。'}</p>
-        ${next ? `<span class="subtle">${duration(next)} · 前に休憩 ${next.rest}秒${item.pose!==exercises[next.id].pose ? ` · ${poses[exercises[next.id].pose]}へ` : ''}</span>` : ''}</div>
+        ${next ? `<span class="subtle">${duration(next)} · 前に休憩 ${next.rest}秒${item.pose!==exercises[next.id].pose ? ` · ${libraryPoses[exercises[next.id].pose]}へ` : ''}</span>` : ''}</div>
       <div class="controls">${secondary}</div>
     </section></div>
     <div class="guide-actions" role="group" aria-label="運動中の操作"><div>${fixedControls}</div></div>`;
@@ -498,7 +473,7 @@ function recommendations(entry) {
   const ratings = new Map();
   for (const result of entry.results) {
     const item = exercises[result.row.id];
-    if (result.status !== 'done' || !['strength','stretch'].includes(item.type)) continue;
+    if (result.status !== 'done' || !isMainType(item.type)) continue;
     if (result.rating === 'hard') ratings.set(item.id,'hard');
     else if (result.rating === 'easy' && !ratings.has(item.id)) ratings.set(item.id,'easy');
   }
@@ -511,7 +486,7 @@ function recommendations(entry) {
   }
   if (!adjustments.length && entry.rating === 'hard' && s.level === 0) {
     for (const key of new Set(entry.results.filter(result => result.status === 'done'
-      && ['strength','stretch'].includes(exercises[result.row.id].type)).map(result => result.row.id))) {
+      && isMainType(exercises[result.row.id].type)).map(result => result.row.id))) {
       const old = s.adjustments[key] || 0;
       if (old > -2) adjustments.push({key,value:old-1,label:exercises[key].name+'の負荷を下げる'});
     }
@@ -630,7 +605,7 @@ app.addEventListener('change',async event => {
   }
   if (input.closest('#plan-form')) {
     const form = new FormData(input.form);
-    options = {purpose:form.get('purpose'), minutes:Number(form.get('minutes')), poses:form.getAll('pose')};
+    options = {purpose:form.get('purpose'), minutes:Number(form.get('minutes')), poses:form.getAll('pose'), noJump:form.has('noJump')};
     failedOptions = null;
     planSuggestions = [];
     document.querySelector('#plan-result').innerHTML = planResult();
@@ -724,7 +699,6 @@ document.addEventListener('click',event => {
       }
       break;
     }
-    case 'preview-hiit': previewHiit(hiitById[value]); break;
     case 'preview': {
       const item = exercises[value];
       openDialog(`<h2>${escape(item.name)}</h2><p class="subtle">${details(item)}</p>${diagram(item)}${description(item)}

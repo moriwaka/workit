@@ -1,7 +1,6 @@
-import {heelTapJumpDiagram} from './heel-tap-jump.js?v=1';
+import {trainingFor} from './hiit-training.js?v=1';
 
-// Movement summaries are written for workit. The linked HIIT Builder pages
-// provide the original demonstrations and easier or harder variations.
+// Movement names retain the original aliases for search and deduplication.
 export const hiitGroups = {
   arms:'上半身', abs:'体幹・腹筋', legs:'下半身', cardio:'有酸素'
 };
@@ -10,7 +9,8 @@ export const hiitPoses = {
   plank:'プランク・手足支持', prone:'うつ伏せ', chair:'椅子・台に手をつく',
   standKneel:'立位と膝立ち', standFloor:'立位と床を往復'
 };
-export const hiitDifficulty = {easy:'低め', medium:'中程度', hard:'高め'};
+const difficultyLevel = {easy:0,medium:1,hard:2};
+const requiredPoses = {chair:['stand'],standFloor:['stand','plank'],standKneel:['stand','kneel']};
 
 const bodyParts = {
   upperBody:['上半身',['shoulder','forearm','chest']],
@@ -57,7 +57,6 @@ const families = {
     [[["push-up-childs-pose", "Push-up + child's pose"]], "プッシュアップ＋チャイルドポーズ", "plank", "medium", false, "upperBody", "腕立て伏せのあと、膝をついてお尻をかかとへ引き、一呼吸おいてプランクに戻る。"],
     [[["push-up-shoulder-tap", "Push-up + shoulder tap"]], "プッシュアップ＋肩タッチ", "plank", "medium", false, "upperBody", "腕立て伏せで上がった位置から、片手ずつ反対の肩に触れる。骨盤を左右に振らない。"],
     [[["push-up-toe-tap", "Push-up + toe tap"]], "プッシュアップ＋反対の足タッチ", "plank", "medium", false, "upperBody", "腕立て伏せのあとにお尻を高くし、片手を反対の足先へ伸ばす。次は反対の手。"],
-    [[["push-up-row-reach", "Push-up + row + reach"]], "プッシュアップ＋ロー＋前方リーチ", "plank", "medium", false, "upperBody back", "腕立て伏せで起きたら片肘を引き、その腕を前へ伸ばす。手を戻し、反対側も行う。"],
     [[["leg-lift-push-ups", "Leg lift push-ups"]], "片脚上げプッシュアップ", "plank", "medium", false, "upperBody", "片脚を伸ばして浮かせたまま腕立て伏せを行う。胴体がねじれない高さに収め、脚を交代する。"],
   ],
   "shoulders": [
@@ -76,8 +75,6 @@ const families = {
     [[["superwoman-arm-raises", "Superwoman arm raises"]], "うつ伏せの両腕上げ", "prone", "easy", false, "back", "脚を床に残してうつ伏せになり、胸と両腕を小さく浮かせて、そっと下ろす。"],
     [[["swimmers", "Swimmers"]], "うつ伏せのスイマー", "prone", "easy", false, "back posterior", "胸と脚を軽く浮かせ、伸ばした腕を頭上から体の横を通って腰の方へ回し、逆の軌道で戻す。"],
     [[["high-plank-arm-raises", "High plank arm raises"]], "ハイプランクの片腕上げ", "plank", "medium", false, "upperBody core", "腕立ての開始姿勢で片腕を肩の高さまで前へ伸ばし、手を戻して交代する。"],
-    [[["plank-row-reach", "Plank row + reach"]], "プランク・ロー＋前方リーチ", "plank", "medium", false, "back upperBody core", "手で支えるプランクで片肘を脇へ引き、その手を前へ伸ばしてから床に戻す。左右交互。"],
-    [[["plank-row-to-downward-dog", "Plank row to downward dog"]], "プランク・ロー＋ダウンドッグ", "plank", "medium", false, "back upperBody core", "片肘を引いて手を床に戻したら、お尻を上げてダウンドッグへ。プランクに戻って反対側を行う。"],
     [[["tricep-dips-on-couch", "Tricep dips on couch"]], "椅子・ソファでトライセプスディップ", "chair", "medium", false, "triceps shoulder", "動かない椅子などの縁に手を置く。足を前に出して縁から腰を外し、肘を後ろへ曲げて体を上下する。", "chair"],
     [[["divebomb-pushups", "Divebomb pushups"]], "ダイブボンバー・プッシュアップ", "plank", "hard", false, "upperBody", "お尻を高くし、胸を両手の間すれすれから前へ移しながら腕を伸ばす。お尻を後ろ上方へ戻す。"],
     [[["half-pushup-to-superman-pose", "Half-pushup to superman pose"]], "プッシュアップ＋スーパーマン", "plank", "medium", false, "upperBody back", "腕立て姿勢から胸を床まで下ろし、うつ伏せで腕を前に伸ばして脚とともに浮かす。手をつき直して起きる。"],
@@ -103,8 +100,6 @@ const families = {
     [[["1-leg-hollow-hold-left", "1-leg hollow hold (left)"]], "片脚ホローホールド（左）", "back", "hard", false, "core", "仰向けで肩を浮かせ、片膝を曲げて反対の脚を伸ばす。腰を床から離さず、左右を入れ替えずに保つ。"],
     [[["hollow-body-knee-hugs", "Hollow body + knee hugs"]], "ホロー姿勢から膝抱え", "back", "hard", false, "core", "伸ばした手足を浮かせた仰向けから膝を抱えて丸まり、手足をまた伸ばす。"],
     [[["full-tuck-ups", "Full tuck-ups"]], "タックアップ", "back", "hard", false, "core", "仰向けから上体と両膝を同時に引き寄せ、お尻でバランスを取ってから両方を伸ばす。"],
-    [[["starfish-crunches", "Starfish crunches"]], "スターフィッシュ・クランチ", "back", "medium", false, "core", "手足を大の字に伸ばした仰向けから、両膝と両手を中央に集め、また広げる。"],
-    [[["knee-hug-to-star", "Knee hug to star"]], "膝抱えから大の字", "back", "easy", false, "core", "仰向けで膝を胸に抱き寄せ、背中を床へ戻しながら両腕と両脚を大の字に広げる。"],
     [[["starfish-toe-taps", "Starfish toe taps"]], "大の字の対角つま先タッチ", "back", "easy", false, "core", "仰向けの大の字から片脚と反対の腕を上げて足先に手を伸ばし、交代する。"],
     [[["leg-raises", "Leg raises"]], "両脚レッグレイズ", "back", "medium", false, "core", "仰向けから伸ばした両脚を上げ、床に触れる手前までゆっくり下ろす。"],
     [[["leg-drops", "Leg drops"]], "両脚レッグドロップ", "back", "medium", false, "core", "天井に向けた両脚を、腰を反らさず床に近づけられる位置まで時間をかけて下ろし、戻す。"],
@@ -129,8 +124,6 @@ const families = {
     [[["side-plank-dips-left", "Side plank dips (left)"]], "サイドプランクの腰上下（左支持）", "side", "medium", false, "core", "左側を下にしたサイドプランクで、腰を床のすぐ上まで下げ、支え直して持ち上げる。"],
     [[["side-plank-reach-under-right", "Side plank + reach under (right)"]], "サイドプランクのアンダーリーチ（右支持）", "side", "medium", false, "core upperBody", "右側で支え、上の腕を胴の下へ通して胸を床へ向ける。胸を開きながら上に伸ばし直す。"],
     [[["side-plank-reach-under-left", "Side plank + reach under (left)"]], "サイドプランクのアンダーリーチ（左支持）", "side", "medium", false, "core upperBody", "左側で支え、上の腕を胴の下へ通して胸を床へ向ける。胸を開きながら上に伸ばし直す。"],
-    [[["side-plank-row-right", "Side plank + row (right)"]], "サイドプランク・ロー（右支持）", "side", "medium", false, "core back", "右側で支えながら上の腕を頭上から引き戻して肘を曲げ、腰を落とさず伸ばし直す。"],
-    [[["side-plank-row-left", "Side plank + row (left)"]], "サイドプランク・ロー（左支持）", "side", "medium", false, "core back", "左側で支えながら上の腕を頭上から引き戻して肘を曲げ、腰を落とさず伸ばし直す。"],
     [[["side-plank-pulses-right", "Side plank pulses (right)"]], "サイドプランク・パルス（右支持）", "side", "medium", false, "core", "右側のサイドプランクで体の線を起点に、腰を少し高くして戻す。"],
     [[["side-plank-pulses-left", "Side plank pulses (left)"]], "サイドプランク・パルス（左支持）", "side", "medium", false, "core", "左側のサイドプランクで体の線を起点に、腰を少し高くして戻す。"],
     [[["side-plank-crunches-right", "Side plank crunches (right)"]], "サイドプランク・クランチ（右支持）", "side", "medium", false, "core", "右側で支えたサイドプランクから、上の肘と膝を体の前で寄せて伸ばし直す。"],
@@ -140,24 +133,18 @@ const families = {
     [[["bear-hold-donkey-kicks", "Bear hold donkey kicks"]], "ベアホールド＋ドンキーキック", "plank", "medium", false, "posterior core upperBody", "ベアホールドから片脚の膝を曲げたまま足裏を上へ向け、膝を浮かせた位置へ戻して交代する。"],
     [[["bird-dogs", "Bird dogs"]], "バードドッグ", "all4", "easy", false, "back posterior core", "手と膝で支え、片腕を前に、反対の脚を後ろへ伸ばしてから戻し、交代する。", "", "bird"],
     [[["plank-shoulder-taps", "Plank shoulder taps"]], "プランク・ショルダータップ", "plank", "medium", false, "upperBody core", "手で支えるプランクで片手ずつ反対の肩をたたく。胴体は床に向けておく。"],
-    [[["plank-widening-walk", "Plank widening walk"]], "プランクの手足幅を広げる歩き", "plank", "medium", false, "core upperBody posterior", "片側の手足ずつ外に置いてプランクの幅を段階的に広げ、同じ順序で狭くする。"],
     [[["plank-toe-taps", "Plank toe taps"]], "プランクから対角の足タッチ", "plank", "medium", false, "core upperBody posterior", "プランクからお尻を上げ、片手を反対のつま先へ伸ばしてからプランクに戻る。"],
     [[["plank-side-steps", "Plank side steps"]], "プランクの横歩き", "plank", "medium", false, "core upperBody posterior", "手とつま先で支えながら同じ側の手足から横にずらし、何歩か進んだら反対へ戻る。"],
-    [[["plank-front-back-walks", "Plank front-back walks"]], "プランクの手だけ前後歩き", "plank", "medium", false, "core upperBody", "足は動かさず、手を一つずつ数センチ前へ置いてから元の位置へ戻す。"],
     [[["reverse-plank-climbers", "Reverse plank climbers"]], "リバースプランクの膝上げ", "plank", "medium", false, "core posterior upperBody", "背後に手をついて腰を浮かせ、片膝を胸の方へ引き、足を戻して交代する。"],
     [[["reverse-plank-hold", "Reverse plank hold"]], "リバースプランク保持", "plank", "medium", false, "posterior upperBody", "背後の手とかかとで支え、胸を上に向けて腰を上げ、肩からかかとをまっすぐ保つ。"],
-    [[["reverse-plank-crunches", "Reverse plank crunches"]], "リバースプランク・クランチ", "plank", "medium", false, "core posterior upperBody", "手を背後について腰を浮かせ、腰の高さを保ちながら両膝を胸へ寄せて脚を伸ばし直す。"],
   ],
   "squats": [
     [[["air-squats", "Air squats"]], "エアスクワット（自重スクワット）", "stand", "medium", false, "quad posterior", "足裏全体をつけたままお尻を後ろへ下げ、太ももが床と平行に近づく範囲から立ち上がる。"],
     [[["squat-pulses", "Squat pulses"]], "スクワット・パルス", "stand", "hard", false, "quad posterior", "しゃがんだ位置の近くで数センチずつ上下し、毎回は立ちきらない。"],
-    [[["in-out-squat-pulses", "In + out squat pulses"]], "足幅を跳んで変えるスクワット・パルス", "stand", "hard", true, "quad posterior", "狭い足幅で2回小さく上下し、低いまま跳んで足を広げ、さらに2回上下して戻る。"],
     [[["3-second-hold-low-squats", "3-second hold low squats"]], "低いスクワットで3秒停止", "stand", "hard", false, "quad posterior", "かかとが浮かない範囲でしゃがみ、3秒保ってから立つ。"],
     [[["sumo-squats", "Sumo squats"]], "スモウスクワット", "stand", "medium", false, "posterior quad", "足を広めに置いてつま先を外へ向け、膝を同じ方向に曲げて腰を下げ、立ち直る。"],
     [[["sumo-squat-pulses-3x", "Sumo squat pulses (3x)"]], "スモウスクワット・パルス3回", "stand", "hard", false, "posterior quad", "広い足幅でしゃがみ、低い位置で小さく3回上下してから立ち上がる。"],
     [[["sumo-holds", "Sumo holds"]], "スモウスクワット保持", "stand", "hard", false, "posterior quad", "足を広げたスクワットの低い位置を、膝と足先の向きをそろえて保つ。"],
-    [[["tippy-toe-squats", "Tippy toe squats"]], "つま先立ちスクワット", "stand", "medium", false, "quad calf posterior", "両かかとを浮かせたまま、バランスを保てる範囲でしゃがんで立つ。"],
-    [[["toe-squat-pulses", "Toe squat pulses"]], "つま先立ちスクワット・パルス", "stand", "hard", false, "quad calf posterior", "つま先立ちでしゃがみ、かかとを浮かせたまま小さく上下する。"],
     [[["squat-to-heel-raise", "Squat to heel raise"]], "スクワット＋かかと上げ", "stand", "medium", false, "quad posterior calf", "一度スクワットから立ちきってから両かかとを上げ、床に戻して次のスクワットへ。"],
     [[["squat-to-calf-raise", "Squat to calf raise"]], "スクワットから両腕上げ・かかと上げ", "stand", "medium", false, "quad posterior calf", "スクワットから起きる勢いをつなげて両腕とかかとを上げ、下ろしてしゃがみ直す。"],
     [[["calf-raises", "Calf raises"]], "自重カーフレイズ", "stand", "easy", false, "calf", "足を腰幅に置き、両かかとを持ち上げて一拍止め、ゆっくり下ろす。必要なら壁に手を添える。", "", "calf"],
@@ -182,8 +169,6 @@ const families = {
     [[["curtsy-lunge-to-squat", "Curtsy lunge to squat"]], "カーテシーランジ＋スクワット", "stand", "medium", false, "posterior quad", "片側のクロスランジから足を開いてスクワットを挟み、反対側のクロスランジへ移る。"],
     [[["curtsy-pulses-right", "Curtsy pulses (right)"]], "カーテシーランジ・パルス（右）", "stand", "hard", false, "posterior quad", "右側のカーテシーランジで足を交差させ、膝を曲げた位置で小さく上下する。"],
     [[["curtsy-pulses-left", "Curtsy pulses (left)"]], "カーテシーランジ・パルス（左）", "stand", "hard", false, "posterior quad", "左側のカーテシーランジで足を交差させ、膝を曲げた位置で小さく上下する。"],
-    [[["toe-lunge-pulses-right", "Toe lunge pulses (right)"]], "つま先ランジ・パルス（右足前）", "stand", "hard", false, "quad posterior calf", "右足を前にしたランジで前足のかかとを上げ、体を小さく上下させる。"],
-    [[["toe-lunge-pulses-left", "Toe lunge pulses (left)"]], "つま先ランジ・パルス（左足前）", "stand", "hard", false, "quad posterior calf", "左足を前にしたランジで前足のかかとを上げ、体を小さく上下させる。"],
     [[["lateral-lunges-side-to-side", "Lateral lunges side to side"]], "ラテラルランジ（左右）", "stand", "medium", false, "quad posterior", "横に踏み出した脚の膝を曲げてお尻を後ろへ引き、反対脚は伸ばす。中央に戻り交代する。"],
     [[["forward-lunge-right-leg", "Forward lunge right leg"]], "フォワードランジ（右足前）", "stand", "medium", false, "quad posterior", "右足で前へ踏み出して両膝を曲げ、右足で押し戻す。踏み出す足は固定する。"],
     [[["forward-lunge-left-leg", "Forward lunge left leg"]], "フォワードランジ（左足前）", "stand", "medium", false, "quad posterior", "左足で前へ踏み出して両膝を曲げ、左足で押し戻す。踏み出す足は固定する。"],
@@ -205,12 +190,6 @@ const families = {
     [[["straight-leg-kickbacks", "Straight leg kickbacks"]], "ストレートレッグ・キックバック", "all4", "easy", false, "posterior", "四つん這いから片膝を伸ばして脚を後ろに出し、腰が反らない範囲で脚を上げ下げする。"],
     [[["straight-leg-kickback-pulses-right", "Straight leg kickback pulses (right)"]], "後ろに伸ばした脚のパルス（右脚）", "all4", "easy", false, "posterior", "右脚を後方へ伸ばして浮かせ、四つん這いの背中を保ったまま小さく上下する。"],
     [[["straight-leg-kickback-pulses-left", "Straight leg kickback pulses (left)"]], "後ろに伸ばした脚のパルス（左脚）", "all4", "easy", false, "posterior", "左脚を後方へ伸ばして浮かせ、四つん這いの背中を保ったまま小さく上下する。"],
-    [[["straight-leg-side-kicks-right", "Straight leg + side kicks (right)"]], "後方＋横への脚上げ（右脚）", "all4", "easy", false, "posterior", "手と左膝で支え、伸ばした右脚を浮かせて後方から横へ開き、後ろへ戻す。"],
-    [[["straight-leg-side-kicks-left", "Straight leg + side kicks (left)"]], "後方＋横への脚上げ（左脚）", "all4", "easy", false, "posterior", "手と右膝で支え、伸ばした左脚を浮かせて後方から横へ開き、後ろへ戻す。"],
-    [[["side-leg-pulses-right", "Side leg pulses (right)"]], "横向き膝立ちの脚パルス（右脚）", "kneel", "easy", false, "posterior", "片手と左膝を床につき、横へ伸ばした右脚を腰の高さの付近で小さく上下する。"],
-    [[["side-leg-pulses-left", "Side leg pulses (left)"]], "横向き膝立ちの脚パルス（左脚）", "kneel", "easy", false, "posterior", "片手と右膝を床につき、横へ伸ばした左脚を腰の高さの付近で小さく上下する。"],
-    [[["side-hamstring-curls-right", "Side hamstring curls (right)"]], "横向き膝立ちのハムストリングカール（右脚）", "kneel", "easy", false, "posterior", "手と左膝で横向きに支え、腰の高さで浮かせた右脚の膝を曲げ、かかとをお尻に寄せて戻す。"],
-    [[["side-hamstring-curls-left", "Side hamstring curls (left)"]], "横向き膝立ちのハムストリングカール（左脚）", "kneel", "easy", false, "posterior", "手と右膝で横向きに支え、腰の高さで浮かせた左脚の膝を曲げ、かかとをお尻に寄せて戻す。"],
     [[["wall-sit-hold", "Wall sit hold"]], "ウォールシット（壁で空気椅子）", "stand", "hard", false, "quad posterior", "背中を壁につけ、足を前へ置く。膝を曲げて腰を落とし、安定した位置で保つ。", "wall"],
     [[["good-mornings", "Good mornings"]], "グッドモーニング（手を頭の後ろに）", "stand", "easy", false, "posterior back", "手を頭の後ろに添え、膝を軽くゆるめる。お尻を引いて股関節から体を前に傾け、起きる。"],
     [[["single-leg-wall-sit-hold-right", "Single-leg wall sit hold (right)"]], "片脚ウォールシット（右支持）", "stand", "hard", false, "quad posterior", "壁で腰を支えてしゃがみ、右足で支えたまま左脚を前方へ伸ばして保つ。", "wall"],
@@ -222,12 +201,6 @@ const families = {
     [[["jumping-jacks", "Jumping jacks"]], "ジャンピングジャック", "stand", "medium", true, "upperBody calf", "跳びながら足を横に開いて両腕を頭上に上げ、次の跳躍で足を閉じて腕を下ろす。"],
     [[["standing-jacks-low-impact", "Standing jacks (low impact)"], ["step-jacks", "Step jacks"]], "ステップジャック（ジャンプなし）", "stand", "easy", false, "upperBody quad calf", "片足を横へ踏み出しながら両腕を頭上に上げ、足と腕を戻す。支持足を床に残して左右交互に。"],
     [[["seal-jacks", "Seal jacks"]], "シールジャック", "stand", "medium", true, "upperBody back", "跳んで足を開くときに腕を横へ開き、足を閉じるときに胸の前で両手を合わせる。"],
-    [[["seal-squat-jacks", "Seal squat jacks"]], "シール・スクワットジャック", "stand", "medium", true, "quad upperBody", "足をそろえてしゃがみ両手を床へ。跳んで足を開きながら両手を頭上へ上げ、狭い足幅のスクワットに戻る。"],
-    [[["power-jacks", "Power jacks"]], "パワージャック", "stand", "hard", true, "quad posterior", "跳んで広い足幅のスクワットに着地し、手を床の近くへ。跳ね上がりながら足を閉じ、両腕を上げる。"],
-    [[["predator-squat-jacks", "Predator squat jacks"]], "プレデタースクワット・ジャック", "stand", "medium", true, "quad posterior", "手を頭の後ろに添え、跳んで足を開き、前傾したスクワットに着地してから跳んで足を閉じる。"],
-    [[["punch-up-jacks", "Punch up jacks"]], "アッパーパンチ・ジャック", "stand", "medium", true, "upperBody calf", "足を開く跳躍に合わせて片腕を上方へ突き上げ、足を閉じて手を引く。腕は左右交互。"],
-    [[["jacks-side-punch", "Jacks + side punch"]], "サイドパンチ・ジャック", "stand", "medium", true, "upperBody calf", "跳んで足を開くときに片腕を横へ突き出し、足が閉じるときに手を胸へ戻す。"],
-    [[["chest-opener-jacks", "Chest opener jacks"]], "胸を開くジャック", "stand", "medium", true, "back upperBody", "ジャンプで足を開きながら伸ばした腕を横へ広げ、足を閉じながら両腕を胸の前へ戻す。"],
     [[["plank-jacks-no-jump", "Plank jacks (no jump)"]], "プランクジャック（歩いて開閉）", "plank", "easy", false, "upperBody core posterior", "手で支えるプランクで足を片方ずつ外へ置き、片方ずつ中央に戻す。骨盤を正面に保つ。"],
     [[["squat-step-jacks-no-jump", "Squat step jacks (no jump)"]], "スクワット＋ステップジャック", "stand", "easy", false, "quad posterior upperBody", "スクワットから立ったら片足を横へ出しながら両腕を上げる。次のスクワットで側を替える。"],
     [[["plank-jacks", "Plank jacks"]], "プランクジャック（両足で跳ぶ）", "plank", "medium", true, "upperBody core", "手で支えるプランクで両足を小さく跳ねて横に開閉する。体幹が大きく揺れない幅で行う。"],
@@ -240,14 +213,11 @@ const families = {
     [[["step-back-burpees", "Step-back burpees"]], "ステップバック・バーピー", "standFloor", "medium", false, "quad upperBody core", "手をついて片足ずつ後ろへ引いてプランクを作り、片足ずつ手元に戻して立ち上がる。"],
     [[["step-back-burpee-punches", "Step-back burpee + punches"]], "ステップバック・バーピー＋パンチ", "standFloor", "medium", false, "quad upperBody", "正面へ左右のパンチを一発ずつ出し、片足ずつ動かすバーピーをして立つ。"],
     [[["burpee-jumping-jack", "Burpee + jumping jack"]], "フルバーピー＋ジャンピングジャック", "standFloor", "hard", true, "quad upperBody", "床まで胸を下ろすバーピーから立ち上がり、そのまま両腕と両脚を開閉するジャンピングジャックを行う。"],
-    [[["burpee-2-crunches", "Burpee + 2 crunches"]], "フルバーピー＋立位クランチ2回", "standFloor", "hard", true, "quad upperBody", "上に跳ぶフルバーピーを行い、立った状態で片膝と反対の肘を近づける。反対も1回行う。"],
     [[["squat-burpees", "Squat burpees"]], "スクワット・バーピー", "standFloor", "hard", true, "quad upperBody", "プランクから足を前に跳ね戻すとき、深いスクワットでいったん着地する。それから立って跳ぶ。"],
     [[["half-burpee-squat-hold", "Half burpee + squat hold"]], "ハーフバーピー＋低いスクワット保持", "standFloor", "medium", true, "quad upperBody", "手をついて両足を跳ねて後ろに伸ばし、足を戻したところで一拍しゃがんでから立つ。"],
     [[["burpees-no-jump", "Burpees (no jump)"]], "バーピー（立位でジャンプなし）", "standFloor", "medium", true, "quad upperBody", "両足を後ろへ送りプランクに入り、足を手元へ戻す。立ち上がったら跳ばずに腕を頭上へ伸ばす。"],
     [[["full-burpees-no-jump", "Full burpees (no jump)"]], "フルバーピー（立位でジャンプなし）", "standFloor", "medium", true, "quad upperBody", "プランクで胸まで床に下ろして押し戻す。足を引き寄せ、跳び上がらずに両腕を上げる。"],
     [[["squat-burpees-no-jump", "Squat burpees (no jump)"]], "スクワット・バーピー（立位でジャンプなし）", "standFloor", "medium", true, "quad upperBody", "プランクから足を手元へ戻したら深いスクワットに移る。そこから跳ばずに立って腕を伸ばす。"],
-    [[["burpee-2-crunches-no-jump", "Burpee + 2 crunches (no jump)"]], "バーピー＋立位クランチ2回（立位でジャンプなし）", "standFloor", "medium", true, "quad upperBody", "バーピーから跳ばずに立って腕を上げ、片膝を反対の肘へ寄せる動きを左右1回ずつ行う。"],
-    [[["bear-burpees", "Bear burpees"]], "ベア・バーピー", "standFloor", "medium", true, "quad upperBody", "手をついて両足を跳ねて後ろへ移し、膝を軽く浮かせたベアホールドに入る。跳ね戻して立つ。"],
     [[["single-leg-burpees-right", "Single-leg burpees (right)"]], "片脚フルバーピー（右支持）", "standFloor", "hard", true, "quad upperBody", "右足で立ち、両手をついて右足だけを後ろへ跳ねる。胸を床まで下ろし、右足を手元に戻して跳ぶ。"],
     [[["single-leg-burpees-left", "Single-leg burpees (left)"]], "片脚フルバーピー（左支持）", "standFloor", "hard", true, "quad upperBody", "左足で立ち、両手をついて左足だけを後ろへ跳ねる。胸を床まで下ろし、左足を手元に戻して跳ぶ。"],
     [[["4-lunge-jumps-1-burpee", "4 lunge jumps + 1 burpee"]], "ジャンプランジ4回＋バーピー1回", "standFloor", "hard", true, "quad posterior", "空中で脚を交代するランジを4回行い、その場でバーピーを1回続ける。"],
@@ -264,7 +234,6 @@ const families = {
     [[["high-knees-no-jump", "High knees (no jump)"]], "ハイニー・マーチ（ジャンプなし）", "stand", "easy", false, "quad core", "片足が常に床にあるよう足踏みし、反対の腕を振りながら膝を高く上げる。"],
     [[["butt-kicks-no-jump", "Butt kicks (no jump)"]], "バットキック（ジャンプなし）", "stand", "easy", false, "posterior quad", "その場で歩き、膝を交互に曲げてかかとをお尻へ近づける。片足で床を支え続ける。"],
     [[["jump-rope", "Jump rope"]], "エア縄跳び", "stand", "medium", true, "calf quad", "縄を持つように両手を腰の横に置き、手首を回しながら足先で低く連続して跳ぶ。"],
-    [[["out-out-in-in-quick-feet-jumps", "Out-out in-in quick feet jumps"]], "足幅を4拍で変えるクイックステップジャンプ", "stand", "medium", true, "quad", "しゃがみを保ち、小さく跳びながら狭い足幅から中、広、中、狭の順に戻す。"],
     [[["bear-crawls", "Bear crawls"]], "ベアクロール", "plank", "medium", false, "upperBody quad", "膝を床から少し浮かせ、反対の手足を組にして前へ数歩進む。背中を水平に保って後ろへ戻る。"],
     [[["plank-side-climbers", "Plank side climbers"]], "プランク・サイドクライマー", "plank", "medium", false, "core", "手で支えるプランクから片膝を同じ側の肘の外に引き寄せ、戻して交代する。"],
   ],
@@ -273,24 +242,15 @@ const families = {
     [[["tuck-jumps", "Tuck jumps"]], "タックジャンプ（両膝抱え跳び）", "stand", "hard", true, "quad core", "浅くしゃがんで上へ跳び、空中で両膝を胸へ引き寄せる。膝をゆるめて両足で着地する。"],
     [[["1-squat-1-squat-jump", "1 squat + 1 squat jump"]], "スクワット1回＋スクワットジャンプ1回", "stand", "medium", true, "quad posterior", "自重スクワットを1回、続けて跳び上がるスクワットを1回行い、交互に繰り返す。"],
     [[["pop-squats", "Pop squats"]], "ポップスクワット", "stand", "hard", true, "quad", "跳んで足を広げながらしゃがみ、床に手を伸ばす。跳び戻りながら足をそろえる。"],
-    [[["pop-squat-double-hop", "Pop squat + double hop"]], "スクワットジャンプ＋追加ホップ", "stand", "hard", true, "quad", "しゃがんだところから跳んで立ち姿勢で着地し、低くもう一度跳んでから次のスクワットへ。"],
-    [[["jump-squat-alternating-crunch", "Jump squat + alternating crunch"]], "ジャンプスクワット＋対角クランチ", "stand", "hard", true, "quad core", "スクワットジャンプで着地してから、立位で片膝と反対の肘を近づける。次は逆側。"],
     [[["squat-reach-no-jump", "Squat + reach (no jump)"]], "スクワット＋上方リーチ（ジャンプなし）", "stand", "medium", false, "quad posterior", "お尻を引いてしゃがみ、立つ動きとともにかかとを浮かせ、両腕を頭上へ伸ばす。足先は床につける。"],
     [[["skater-steps-no-jump", "Skater steps (no jump)"]], "スケーターステップ（ジャンプなし）", "stand", "medium", false, "quad posterior", "横に一歩踏み出して反対の足を後ろへ流し、反対の手を踏み出した足へ伸ばす。歩いて左右を替える。"],
-    [[["star-steps-no-jump", "Star steps (no jump)"]], "スターステップ（ジャンプなし）", "stand", "medium", false, "upperBody quad", "右、左と順に横へ足を出しながら腕を上げて大の字を作り、右、左と足を戻しながら腕を下ろす。"],
     [[["bodyweight-thrusters-no-jump", "Bodyweight thrusters (no jump)"]], "自重スラスター（ジャンプなし）", "stand", "medium", false, "quad upperBody", "肩の近くに手を構えてスクワットし、立ち上がりながら両手を押し上げてつま先立ちになる。"],
     [[["skater-jumps", "Skater jumps"]], "スケータージャンプ", "stand", "hard", true, "quad posterior", "横へ跳んで反対の片足で着地し、浮いた脚を後ろへ流す。膝を曲げて衝撃を受け、反対へ跳ぶ。"],
     [[["jump-lunges", "Jump lunges"], ["lunge-jumps", "Lunge jumps"]], "ジャンプランジ", "stand", "hard", true, "quad posterior", "ランジの姿勢から上へ跳び、前後の脚を空中で入れ替えて反対側のランジに着地する。"],
     [[["lunge-jump-hop", "Lunge jump + hop"]], "ジャンプランジ2回＋小ジャンプ", "stand", "hard", true, "quad posterior", "前後の脚を入れ替えるジャンプランジを2回、両足をそろえた小ジャンプを1回行う。"],
     [[["star-jumps", "Star jumps"]], "スタージャンプ", "stand", "hard", true, "upperBody quad", "跳び上がって空中で手足を大の字に開き、両足を中央に戻して着地する。"],
     [[["squat-pulse-star-jump", "Squat pulse + star jump"]], "スクワット・パルス＋スタージャンプ", "stand", "hard", true, "quad upperBody", "スクワットの低い位置で2回小さく上下し、空中で手足を大きく開くジャンプへ移る。"],
-    [[["surfer-jumps", "Surfer jumps"]], "サーファージャンプ（180度）", "stand", "hard", true, "quad posterior", "サーフィンのように斜めに構えて腰を落とし、跳びながら半回転して反対向きに着地する。"],
-    [[["dynamic-heel-taps", "Dynamic heel taps"]], "立位の対角かかとタッチ", "stand", "easy", false, "core", "片足を反対の脚の前へ上げ、かかとの内側に反対の手を伸ばす。足をついて交代する。"],
     [[["heel-tap-jumps", "Heel tap jumps"]], "かかとタッチジャンプ", "stand", "medium", true, "posterior quad", "両膝を軽く曲げて真上に跳ぶ。空中で両膝を曲げ、後ろに上げたかかとに同じ側の手で軽く触れる。足を体の下へ戻し、両膝をゆるめて両足で着地する。"],
-    [[["clap-under-kicks", "Clap under kicks"]], "脚の下で手をたたくキックジャンプ", "stand", "medium", true, "core quad", "片足で軽く跳び、反対の脚を前へ上げてその下で拍手する。次は逆の脚を上げる。"],
-    [[["clap-under-kicks-no-jump", "Clap under kicks (no jump)"]], "脚の下で手をたたくキック（ジャンプなし）", "stand", "easy", false, "core quad", "片足を床につけたまま反対の脚を前に上げ、脚の下で拍手する。足を下ろして交代する。"],
-    [[["single-arm-bodyweight-slams-right", "Single arm bodyweight slams (right)"]], "自重スラム（右腕）", "stand", "medium", false, "quad upperBody", "つま先立ちで右腕を上に伸ばし、スクワットに入る動きと合わせて右腕を床方向へ振り下ろす。"],
-    [[["single-arm-bodyweight-slams-left", "Single arm bodyweight slams (left)"]], "自重スラム（左腕）", "stand", "medium", false, "quad upperBody", "つま先立ちで左腕を上に伸ばし、スクワットに入る動きと合わせて左腕を床方向へ振り下ろす。"],
     [[["walk-it-out-inchworms", "Walk it out (inchworms)"]], "インチワーム（手で歩く）", "standFloor", "easy", false, "posterior upperBody core", "立位から前屈して両手をつき、手を一歩ずつ前へ進めてプランクを作る。手で戻って立つ。"],
     [[["bear-walkouts", "Bear walkouts"]], "ベア・ウォークアウト", "plank", "easy", false, "upperBody core quad", "膝を浮かせた四つん這いで手を前へ歩かせ、脚を伸ばしてプランクを作る。逆の順序で戻る。"],
     [[["bodyweight-thrusters", "Bodyweight thrusters"]], "自重スラスター（ジャンプあり）", "stand", "hard", true, "quad upperBody", "肩の近くに手を構えてスクワットし、強く立って腕を頭上へ押し上げる動きに小さな跳躍を合わせる。"],
@@ -298,19 +258,27 @@ const families = {
 };
 
 export const hiitExercises = Object.entries(families).flatMap(([subgroup,rows])=>
-  rows.map(([sources,name,pose,difficulty,jumps,targets,summary,equipment,existingId])=> {
+  rows.flatMap(([sources,name,pose,difficulty,jumps,targets,summary,equipment,existingId])=> {
     const group = hiitSubgroups[subgroup].group;
     const parts = targets.split(' ').map(key=>bodyParts[key]);
     const [[slug]] = sources;
-    return {
-      id: existingId ?? 'hiit-'+slug, supportsGuide:Boolean(existingId), name, group, subgroup,
-      diagram:slug==='heel-tap-jumps' ? heelTapJumpDiagram : undefined,
-      pose, difficulty, jumps, summary,
+    const training = trainingFor(slug);
+    if (!existingId && !training) return [];
+    const held = /(?:-hold$|-holds$|-hold-(?:right|left)$|^1-leg-hollow-hold-)/.test(slug);
+    return [{
+      id:existingId ?? 'hiit-'+slug, existingId, name, group, subgroup,
+      ...training, pose, requiredPoses:requiredPoses[pose],
+      level:Math.max(difficultyLevel[difficulty],jumps ? 1 : 0),
+      held, timed:held, jumps,
+      steps:summary.split('。').filter(Boolean).map(step=>step+'。'),
+      cue:jumps ? '両足の向きを保ち、膝をゆるめて着地する。' : '姿勢を保てる範囲で動き、息を止めない。',
       target:parts.map(([label])=>label).join('・'),
       load:[...new Set(parts.flatMap(([,zones])=>zones))],
       gear:equipment ? [equipment] : [],
       type:group==='cardio' ? 'cardio' : 'strength',
       sources:sources.map(([key,title])=>({title,url:`https://hiitbuilder.app/moves/${key}/`}))
-    };
+    }];
   })
 );
+
+export const hiitGuided = hiitExercises.filter(item=>!item.existingId);

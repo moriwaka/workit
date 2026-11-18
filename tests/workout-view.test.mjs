@@ -1,10 +1,39 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {exercises, zones} from '../catalog.js?v=16';
-import {curatedSource} from '../evidence.js?v=16';
-import {allowed, defaultSettings, estimate} from '../planner.js?v=18';
-import {hiitDifficulty, hiitExercises, hiitSubgroups} from '../hiit-library.js?v=2';
-import {filterExercises, libraryGear, libraryPoses, workoutBreakdown} from '../workout-view.js?v=3';
+import {exercises, frames, levels, zones} from '../catalog.js?v=17';
+import {curatedSource, evidence, references} from '../evidence.js?v=17';
+import {allowed, alternatives, defaultSettings, estimate, generate, validate} from '../planner.js?v=19';
+import {hiitExercises, hiitSubgroups} from '../hiit-library.js?v=3';
+import {filterExercises, libraryGear, libraryPoses, workoutBreakdown} from '../workout-view.js?v=4';
+
+test('verified HIIT exercises generate timed cardio rows and survive backup restore', () => {
+  const exercise = exercises['hiit-standing-jacks-low-impact'];
+  assert.ok(exercise?.diagram.stages.length);
+  const options = {purpose:'cardio',minutes:10,poses:['stand'],noJump:true};
+  const settings = {...defaultSettings,level:1};
+  assert.ok(allowed(exercise,options,settings));
+  const rows = generate(options,settings,()=>0);
+  assert.ok(rows.some(row=>exercises[row.id].type==='cardio' && row.seconds));
+  assert.ok(rows.every(row=>!exercises[row.id].jumps));
+  const saved = [{id:'test-hiit',name:'HIIT',rows,options}];
+  assert.deepEqual(validate({version:1,settings,saved,history:[]}).saved,saved);
+  const main = rows.findIndex(row=>exercises[row.id].type==='cardio');
+  assert.ok(alternatives(rows,main,options,settings).some(row=>exercises[row.id].type==='cardio'));
+  assert.ok(!allowed(exercises['hiit-jumping-jacks'],options,settings));
+  assert.ok(allowed(exercises['hiit-jumping-jacks'],{...options,noJump:false},settings));
+});
+
+test('movement requirements apply to all library entries and the exercise both starts and ends upright', () => {
+  const stepBack = exercises['hiit-step-back-burpees'];
+  const settings = {...defaultSettings,level:2};
+  assert.ok(!allowed(stepBack,{poses:['stand'],noJump:true},settings));
+  assert.ok(!allowed(stepBack,{poses:['plank'],noJump:true},settings));
+  assert.ok(allowed(stepBack,{poses:['stand','plank'],noJump:true},settings));
+  assert.deepEqual(frames(stepBack)[0],frames(stepBack).at(-1));
+  const dip = exercises['hiit-tricep-dips-on-couch'];
+  assert.ok(!allowed(dip,{poses:['stand']},settings));
+  assert.ok(allowed(dip,{poses:['stand']},{...settings,gear:['chair']}));
+});
 
 test('workout breakdown includes rests and side transitions exactly once', () => {
   const rows = [{id:'march',seconds:45,rest:12},
@@ -28,10 +57,9 @@ test('empty and partial workouts have no empty phase blocks', () => {
 
 test('library only displays source-checked exercises', () => {
   const all = filterExercises({availableOnly:false},defaultSettings);
-  const guided = all.filter(item=>item.supportsGuide);
-  assert.equal(guided.length,Object.keys(curatedSource).length);
-  assert.ok(guided.every(item=>Object.hasOwn(curatedSource,item.id)));
-  assert.ok(all.every(item=>item.supportsGuide || item.sources.length));
+  assert.equal(all.length,Object.keys(curatedSource).length);
+  assert.ok(all.every(item=>Object.hasOwn(curatedSource,item.id)));
+  assert.ok(all.every(item=>Object.hasOwn(exercises,item.id)));
 });
 
 test('library search normalizes half-width characters and whitespace', () => {
@@ -58,8 +86,7 @@ test('library can be searched by equipment and target region', () => {
     .some(item=>item.load.includes('quad')));
 });
 
-test('all HIIT Builder source pages are represented once, including merged duplicates', () => {
-  const totals = Object.fromEntries(['arms','abs','legs','cardio'].map(group=>[group,0]));
+test('curated HIIT pages resolve to unique exercises with native figures and independent written sources', () => {
   const sourceUrls = new Set();
   const itemIds = new Set();
   for (const item of hiitExercises) {
@@ -67,20 +94,26 @@ test('all HIIT Builder source pages are represented once, including merged dupli
     itemIds.add(item.id);
     assert.equal(hiitSubgroups[item.subgroup].group,item.group);
     assert.ok(Object.hasOwn(libraryPoses,item.pose));
-    assert.ok(Object.hasOwn(hiitDifficulty,item.difficulty));
+    assert.ok(Object.hasOwn(levels,item.level));
     assert.ok(item.load.length && item.load.every(key=>Object.hasOwn(zones,key)));
     assert.ok(item.gear.every(key=>Object.hasOwn(libraryGear,key)));
-    assert.ok(item.summary.length && item.sources.length);
-    assert.equal(item.supportsGuide,Object.hasOwn(exercises,item.id));
+    assert.ok(item.steps.length && item.sources.length);
+    const exercise = exercises[item.id];
+    assert.ok(exercise);
+    assert.ok(frames(exercise).every(pose=>Object.values(pose).every(point=>point.every(Number.isFinite))));
+    assert.ok(evidence[item.id].refs.length);
+    assert.ok(evidence[item.id].refs.every(key=>new URL(references[key][1]).hostname!=='hiitbuilder.app'));
+    if (!item.existingId) {
+      assert.ok(item.diagram?.stages.length>2,item.id);
+      assert.ok(new Set(item.diagram.stages.map(stage=>stage.points)).size>1,item.id);
+      assert.ok(item.writtenSources.length,item.id);
+    }
     for (const {url} of item.sources) {
       assert.match(url,/^https:\/\/hiitbuilder\.app\/moves\/[a-z0-9-]+\/$/);
       assert.ok(!sourceUrls.has(url),url);
       sourceUrls.add(url);
-      totals[item.group]++;
     }
   }
-  assert.deepEqual(totals,{arms:35,abs:60,legs:64,cardio:71});
-  assert.equal(filterExercises({},defaultSettings).length,Object.keys(curatedSource).length+224);
 });
 
 test('calf raises and two-leg glute bridges reuse their existing library and guide entries', () => {
@@ -88,7 +121,7 @@ test('calf raises and two-leg glute bridges reuse their existing library and gui
   assert.deepEqual(search('自重カーフレイズ').map(item=>item.id),['calf']);
   assert.deepEqual(search('Glute bridges both legs').map(item=>item.id),['bridge']);
   assert.deepEqual(search('自重カーフレイズ')[0].gear,['wall']);
-  assert.equal(search('Glute bridges both legs')[0].supportsGuide,true);
+  assert.equal(search('Glute bridges both legs')[0].id,'bridge');
   assert.ok(search('片脚グルートブリッジ').some(item=>item.id==='hiit-right-leg-glute-bridge'));
   assert.ok(search('エアスクワット').some(item=>item.id==='hiit-air-squats'));
 });
@@ -103,6 +136,6 @@ test('HIIT categories, subtitles, English aliases, and restrictions compose', ()
     search({query:'step jacks',classification:'jacks'})[0].id);
   assert.deepEqual(search({classification:'abs',query:'deadbugs'}).map(item=>item.id),['dead-bug']);
   assert.equal(search({classification:'abs',query:'bird dogs'})[0].id,'bird');
-  assert.deepEqual(search({classification:'cardio',availableOnly:true}),[]);
+  assert.ok(search({classification:'cardio',availableOnly:true}).some(item=>item.id==='hiit-standing-jacks-low-impact'));
   assert.deepEqual(search({query:'トライセプス 椅子'}).map(item=>item.id),['hiit-tricep-dips-on-couch']);
 });

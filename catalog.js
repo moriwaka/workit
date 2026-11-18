@@ -1,10 +1,14 @@
-export const poses = { stand: '立位', sit: '床の座位', back: '仰向け', all4: '四つん這い', kneel: '膝立ち', side: '横向き' };
-export const gear = { wall: '壁', step: '踏み台', band: '輪状バンド' };
+import {hiitGuided} from './hiit-library.js?v=3';
+
+export const poses = { stand: '立位', sit: '床の座位', back: '仰向け', all4: '四つん這い', kneel: '膝立ち', side: '横向き',
+  plank:'プランク・手足支持', prone:'うつ伏せ' };
+export const gear = { wall: '壁', step: '踏み台', band: '輪状バンド', chair:'安定した椅子・ソファ' };
 export const zones = {
   shoulder: '肩・上腕', forearm: '肘・前腕・手首', chest: '胸', upper: '背中上部', core: '体幹・腰',
   hip: 'お尻・股関節', quad: '太もも前', ham: '太もも裏', calf: 'ふくらはぎ・足首'
 };
-export const purposes = { mixed: '筋力＋柔軟性', strength: '筋力', stretch: '柔軟性' };
+export const purposes = { mixed: '筋力＋柔軟性', strength: '筋力', stretch: '柔軟性', cardio:'有酸素' };
+export const isMainType = type => ['strength','stretch','cardio'].includes(type);
 export const phases = { warm: 'ウォームアップ', main: 'メイントレーニング', cool: 'クールダウン' };
 export const levels = ['入門', '軽め', '標準'];
 
@@ -219,7 +223,7 @@ function footTip(points, side, exercise) {
 }
 
 export function frames(exercise) {
-  const staged = diagramStages[exercise.motion];
+  const staged = exercise.diagram?.stages ?? diagramStages[exercise.motion];
   if (staged) return staged.map(stage=>stage.points);
   const motion = motions[exercise.motion];
   const stages = exercise.motion==='toe' ? toeFrames
@@ -394,4 +398,5 @@ phaseVariant('cool-stand-breath','sit-breathe','立って呼吸を整える','co
 phaseVariant('warm-elbow','elbow-range','立って肘を軽く動かす','warm',
   ['腕を体の横に下ろす。','肘を小さく曲げ伸ばしする。']);
 
+catalog.push(...hiitGuided);
 export const exercises = Object.fromEntries(catalog.map(item => [item.id,item]));

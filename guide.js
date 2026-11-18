@@ -1,6 +1,6 @@
-import {exercises, phases} from './catalog.js?v=16';
-import {effort, repSeconds, setLabels, sideSwitchSeconds} from './planner.js?v=18';
-import {announce, silence} from './media.js?v=19';
+import {exercises, phases, isMainType} from './catalog.js?v=17';
+import {effort, repSeconds, setLabels, sideSwitchSeconds} from './planner.js?v=19';
+import {announce, silence} from './media.js?v=20';
 
 export class Guide {
   constructor(plan, settings, callbacks) {
@@ -31,7 +31,7 @@ export class Guide {
   get elapsed() { return this.offset + (this.started === null ? 0 : (performance.now() - this.started)/1000); }
   get isTiming() { return this.phase === 'rest' || this.phase === 'work' || this.phase === 'switch'; }
   get firstSide() { return this.exercise.sides && this.firstSideTime === null; }
-  get isMain() { return ['strength','stretch'].includes(this.exercise.type); }
+  get isMain() { return isMainType(this.exercise.type); }
   get limit() {
     if (this.phase==='rest') return this.row.rest;
     if (this.phase==='switch') return sideSwitchSeconds;

@@ -184,9 +184,6 @@ dialog .stack { gap:9px }
 .library-card .btn { min-height:44px }
 .library-empty { grid-column:1/-1 }
 .library-empty .btn { margin-top:14px }
-.hiit-details { display:grid; grid-template-columns:max-content minmax(0,1fr); gap:10px 14px; line-height:1.65 }
-.hiit-details dt { color:var(--muted); font-size:.85rem; font-weight:700 }
-.hiit-details dd { margin:0 }
 .guide-next { border-top:1px solid var(--line); margin-top:18px; padding-top:14px }
 .guide-next p { font-weight:700; margin:4px 0; overflow-wrap:anywhere }
 .guide-copy .clock { font-size:clamp(3.15rem,6vw,5rem) }

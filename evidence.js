@@ -1,3 +1,5 @@
+import {hiitGuided} from './hiit-library.js?v=3';
+
 export const references = {
   jpStrength: ['厚生労働省「筋力トレーニングについて」','https://kennet.mhlw.go.jp/information/information/exercise/s-00-005.html'],
   aha: ['American Heart Association「Warm Up, Cool Down」','https://www.heart.org/en/healthy-living/exercise-and-physical-activity/fitness-basics/warm-up-cool-down'],
@@ -153,6 +155,7 @@ export const intensity = {
   warm:'軽い動き。会話できるペースから始め、息が上がる手前で調整。',
   cool:'軽い動き。少しずつペースを落として呼吸を整える。',
   strength:'姿勢を保って動ける範囲。余力を残し、動きが乱れたり痛みが出たりしたら止める。',
+  cardio:'姿勢を保てるペースで行い、着地する動きでは膝をやわらかく使う。',
   stretch:'軽い張りを感じる範囲。痛みの手前で止め、反動をつけない。'
 };
 
@@ -172,3 +175,13 @@ export const curatedSource = {
   'toe-raise':'toeWall', 'chest-open':'chestStretch', 'sit-straddle':'straddle', 'sit-spinal':'spinalTwist',
   'straight-raise':'straightLeg', 'knee-roll':'kneeRollNhs', 'figure-four':'nhsStretch'
 };
+
+for (const item of hiitGuided) {
+  const refs = item.writtenSources.map(({title,url},index)=> {
+    const key = item.id+'-source-'+index;
+    references[key] = [title,url];
+    return key;
+  });
+  evidence[item.id] = {name:item.sources[0].title,target:item.target,refs};
+  curatedSource[item.id] = refs[0];
+}

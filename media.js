@@ -1,5 +1,5 @@
-import {frames, seatedDiagrams, stepLayout, stepStages, heelDigFloor, diagramFloor, footGuides} from './catalog.js?v=16';
-import {sideSwitchSeconds} from './planner.js?v=18';
+import {frames, seatedDiagrams, stepLayout, stepStages, heelDigFloor, diagramFloor, footGuides} from './catalog.js?v=17';
+import {sideSwitchSeconds} from './planner.js?v=19';
 
 const pink = '#ed865f';
 const purple = '#523290';
@@ -218,7 +218,7 @@ function kneeRollDetails(ctx, points, horizontalMotion) {
 }
 
 function draw(canvas, first, last, ratio, stepIndex = 0) {
-  const {exercise,poses} = diagrams.get(canvas);
+  const {exercise,poses,otherSide} = diagrams.get(canvas);
   const ctx = canvas.getContext('2d');
   ctx.setTransform(canvas.width/300,0,0,canvas.height/230,0,0);
   ctx.clearRect(0,0,300,230);
@@ -249,6 +249,12 @@ function draw(canvas, first, last, ratio, stepIndex = 0) {
     line(ctx,[[111,44],[111,200]],'#a68dc4',4);
     for (let y=54;y<190;y+=12) line(ctx,[[110,y],[103,y-8]],'#d6c6ec',1.5);
   }
+  if (guide?.support==='wall') {
+    line(ctx,[[115,72],[115,floor]],'#a68dc4',4);
+  } else if (guide?.support==='chair') {
+    line(ctx,[[65,145],[132,145]],'#a68dc4',6);
+    for (const x of [72,124]) line(ctx,[[x,145],[x,floor]],'#a68dc4',3);
+  }
   if (exercise.motion==='side') line(ctx,[[88,53],[88,floor]],'#a68dc4',4);
   if (step) stepPlatform(ctx);
   const p = Object.fromEntries(Object.keys(first).map(key => [key,pointBetween(first[key],last[key],ratio)]));
@@ -271,7 +277,7 @@ function draw(canvas, first, last, ratio, stepIndex = 0) {
   if (guide?.arrows) movementArrows(ctx,guide,p,poses[0],ratio>.08);
   if (exercise.motion==='warrior') warriorAlignment(ctx);
   disk(ctx,p.head,13,seated ? '#bfa7dd' : pink);
-  disk(ctx,[p.head[0]+(seated?.front ? -4 : 5),p.head[1]-2],1.6,ink);
+  disk(ctx,[p.head[0]+(seated?.front ? -4 : otherSide ? -5 : 5),p.head[1]-2],1.6,ink);
   if (seated?.front) disk(ctx,[p.head[0]+4,p.head[1]-2],1.6,ink);
   if (seated) {
     for (const key of seated.highlights) disk(ctx,p[key],key === 'head' ? 5 : 4,'#ab431d');
@@ -293,8 +299,16 @@ function draw(canvas, first, last, ratio, stepIndex = 0) {
 }
 
 export function attachDiagram(canvas, exercise) {
-  const poses = exercise.diagram?.stages.map(stage=>stage.points) ?? frames(exercise);
-  diagrams.set(canvas,{exercise,poses,started:null,paused:reducedMotion.matches});
+  const positions = frames(exercise);
+  const otherSide = canvas.dataset?.side==='other' && Boolean(exercise.diagram);
+  const poses = otherSide
+    ? positions.map(points=>Object.fromEntries(Object.entries(points).map(([joint,[x,y]])=>{
+      const paired = /^(?:l|r)[sehpkft]$/.test(joint);
+      const key = paired ? (joint[0]==='l' ? 'r' : 'l')+joint.slice(1) : joint;
+      return [key,[300-x,y]];
+    })))
+    : positions;
+  diagrams.set(canvas,{exercise,poses,otherSide,started:null,paused:reducedMotion.matches});
   draw(canvas,poses[0],poses[0],0);
 }
 

@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {catalog, exercises, poses, purposes, frames, stepLayout, stepStages, heelDigFloor, heelDigStages, kneeRollStages, diagramFloor, footGuides} from '../catalog.js?v=16';
-import {curatedSource, evidence, intensity, references} from '../evidence.js?v=16';
-import {allowed, alternatives, defaultSettings, estimate, floorChanges, generate, validate, explainPlan, setLabels} from '../planner.js?v=18';
+import {catalog, exercises, poses, purposes, frames, stepLayout, stepStages, heelDigFloor, heelDigStages, kneeRollStages, diagramFloor, footGuides} from '../catalog.js?v=17';
+import {curatedSource, evidence, intensity, references} from '../evidence.js?v=17';
+import {allowed, alternatives, defaultSettings, estimate, floorChanges, generate, validate, explainPlan, setLabels} from '../planner.js?v=19';
 
 const defaultOptions = {purpose:'stretch', minutes:15, poses:Object.keys(poses)};
 
@@ -17,7 +17,11 @@ test('the reported floor-to-standing round trips count across warm-up and cooldo
 
 test('generator keeps standing and floor in blocks while honoring excluded regions, equipment, and time', () => {
   let plans = 0;
-  for (let mask=1; mask<(1<<Object.keys(poses).length); mask++) {
+  const originalPoses = ['stand','sit','back','all4','kneel','side'];
+  const selections = Array.from({length:(1<<originalPoses.length)-1},(_,i)=>
+    originalPoses.filter((_,bit)=>(i+1)&(1<<bit)));
+  selections.push(['stand','plank'],['plank','all4'],['prone','back'],Object.keys(poses));
+  for (const enabled of selections) {
     for (const purpose of Object.keys(purposes)) {
       for (const minutes of [10,15,20,30,40]) {
         for (const settings of [
@@ -25,7 +29,7 @@ test('generator keeps standing and floor in blocks while honoring excluded regio
           {...defaultSettings,level:2,gear:['wall','step','band']},
           {...defaultSettings,blocked:['shoulder','calf'],gear:[]}
         ]) {
-          const options = {purpose,minutes,poses:Object.keys(poses).filter((_,i)=>mask&(1<<i))};
+          const options = {purpose,minutes,poses:enabled};
           const plan = generate(options,settings,()=>.37);
           if (!plan) continue;
           plans++;
@@ -40,9 +44,10 @@ test('generator keeps standing and floor in blocks while honoring excluded regio
 });
 
 test('30- and 40-minute plans extend past 16 sets and survive saving and backup restore', () => {
+  const settings = {...defaultSettings,excluded:catalog.filter(item=>item.id.startsWith('hiit-')).map(item=>item.id)};
   for (const minutes of [30,40]) {
     const options = {purpose:'mixed',minutes,poses:Object.keys(poses)};
-    const rows = generate(options,defaultSettings,()=>.42);
+    const rows = generate(options,settings,()=>.42);
     const main = rows.filter(row=>['strength','stretch'].includes(exercises[row.id].type));
     assert.ok(main.length>16);
     assert.ok(estimate(rows)>=minutes*60-75);
@@ -56,7 +61,7 @@ test('30- and 40-minute plans extend past 16 sets and survive saving and backup 
     const saved = [{id:'test-saved',name:'テスト',options,rows}];
     const history = [{id:'test-history',name:'テスト',date:new Date(0).toISOString(),active:0,ended:false,
       rating:'',results:rows.map(row=>({row,status:'done',rating:''}))}];
-    const restored = validate({version:1,settings:defaultSettings,saved,history});
+    const restored = validate({version:1,settings,saved,history});
     assert.deepEqual(restored.saved,saved);
     assert.deepEqual(restored.history,history);
   }
@@ -173,7 +178,8 @@ test('limited plans report duration and only offer changes backed by an eligible
   const noPose = explainPlan({...options,poses:[]},settings,null);
   assert.equal(noPose.reason,'poses');
   assert.ok(noPose.suggestions.every(item=>item.kind==='pose'));
-  const noMain = explainPlan({...options,purpose:'strength',poses:['all4']},settings,null);
+  const noMain = explainPlan({...options,purpose:'strength',poses:['all4']},
+    {...settings,excluded:catalog.filter(item=>item.pose==='all4' && item.type==='strength').map(item=>item.id)},null);
   assert.equal(noMain.reason,'main');
   const fit = {...options,poses:['stand']};
   const complete = generate(fit,defaultSettings,()=>0);
