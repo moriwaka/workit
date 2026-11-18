@@ -1,4 +1,4 @@
-import {frames, seatedDiagrams} from './catalog.js?v=6';
+import {frames, seatedDiagrams} from './catalog.js?v=7';
 
 const pink = '#ed865f';
 const purple = '#523290';
@@ -67,6 +67,11 @@ function draw(canvas, exercise, first, last, ratio) {
   if (exercise.gear.includes('wall') && ['push','calfStretch'].includes(exercise.motion)) {
     line(ctx,[[245,53],[245,200]],'#a68dc4',4);
     for (let y=65;y<190;y+=12) line(ctx,[[246,y],[254,y-8]],'#d6c6ec',1.5);
+  }
+  if (exercise.motion==='toeRaise') {
+    line(ctx,[[111,44],[111,200]],'#a68dc4',4);
+    for (let y=54;y<190;y+=12) line(ctx,[[110,y],[103,y-8]],'#d6c6ec',1.5);
+    if (ratio>.08) arrow(ctx,[[201,199],[200,180]]);
   }
   if (exercise.gear.includes('step')) {
     ctx.fillStyle = '#bba8df';

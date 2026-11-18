@@ -1,8 +1,8 @@
-import {poses, gear, zones, purposes, phases, levels, exercises, catalog, seatedDiagrams} from './catalog.js?v=6';
-import {defaultSettings, ratingLabels, statusLabels, generate, estimate, alternatives, allowed, fullSequence, floorChanges, validate, repSeconds, explainPlan, menuMinutes} from './planner.js?v=6';
-import {attachDiagram, setDiagramFrame, announce, voiceAvailable, silence, unlockSound} from './media.js?v=6';
-import {Guide} from './guide.js?v=6';
-import {curatedSource, evidence, intensity, references} from './evidence.js?v=6';
+import {poses, gear, zones, purposes, phases, levels, exercises, catalog, seatedDiagrams} from './catalog.js?v=7';
+import {defaultSettings, ratingLabels, statusLabels, generate, estimate, alternatives, allowed, fullSequence, floorChanges, validate, repSeconds, explainPlan, menuMinutes} from './planner.js?v=7';
+import {attachDiagram, setDiagramFrame, announce, voiceAvailable, silence, unlockSound} from './media.js?v=7';
+import {Guide} from './guide.js?v=7';
+import {curatedSource, evidence, intensity, references} from './evidence.js?v=7';
 
 const app = document.querySelector('#app');
 const dialog = document.querySelector('#dialog');

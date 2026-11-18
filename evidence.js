@@ -26,6 +26,14 @@ export const references = {
   sideBend: ['University Hospital Southampton「Exercises to improve your posture」','https://www.uhs.nhs.uk/Media/UHS-website-2019/Patientinformation/Respiratory/Exercises-to-improve-your-posture-562-PIL.pdf'],
   floorBreath: ['North Bristol NHS Trust「Coming to the body」','https://www.nbt.nhs.uk/sites/default/files/attachments/Session%202%20handout%202020.pdf'],
   bandHip: ['myHEP「Supine Hip Abduction with Band」','https://myhep.io/exercise-library/how-to-perform-the-supine-hip-abduction-with-band'],
+  bodyHinge: ['ShuttleScience「Hip hinge」','https://shuttlescience.com/library/hinge'],
+  shoulderBlade: ['Leeds Teaching Hospitals NHS「Shoulder exercises」','https://www.leedsth.nhs.uk/patients/resources/shoulder-exercises/'],
+  toeWall: ['East Lancashire Hospitals NHS「Toe raises against a wall」','https://elht.nhs.uk/services/paediatric-physiotherapy/information-patients/ankle-sprains'],
+  chestStretch: ['The Royal Marsden NHS「Chest stretch」（PDF）','https://patientinfolibrary.royalmarsden.nhs.uk/sites/default/files/documents/RS-1554-02.pdf'],
+  straddle: ['ACE「Seated Straddle Stretch」','https://www.acefitness.org/resources/everyone/exercise-library/210/seated-straddle-stretch/'],
+  spinalTwist: ['Mayo Clinic「Seated spinal twist」','https://www.mayoclinic.org/healthy-lifestyle/stress-management/multimedia/seated-spinal-twist/vid-20453586'],
+  straightLeg: ['Cambridge University Hospitals「Early knee exercises」','https://www.cuh.nhs.uk/our-services/physiotherapy-outpatients/outpatient-physio-resources/resources/knee/early-knee-exercises/'],
+  kneeRollNhs: ['Maidstone and Tunbridge Wells NHS「Knee rolls」（PDF）','https://www.mtw.nhs.uk/wp-content/uploads/2025/10/Management-of-Lower-Back-PainSTANDARD-PRINT-LEAFLET.pdf'],
   breathing: ['NHS「Breathing exercises for stress」','https://www.nhs.uk/mental-health/self-help/guides-tools-and-activities/breathing-exercises-for-stress/']
 };
 
@@ -62,6 +70,16 @@ export const evidence = {
   fallout: {name:'Bent-knee fallout',target:'股関節を動かす。骨盤を保つ体幹にも負荷',refs:['floor'],variant:true},
   bird: {name:'Bird dog / Quadruped',target:'体幹と背中・お尻。支える側の肩にも負荷',refs:['core']},
   'rock-stretch': {name:'Quadruped rock-back',target:'股関節まわり。腕で支えるので肩にも負荷',refs:['rock'],variant:true},
+  'hip-hinge': {name:'Bodyweight hip hinge',target:'お尻・太もも裏。体幹は背中を支える',refs:['bodyHinge'],demo:'bodyHinge'},
+  'scapular-squeeze': {name:'Scapular retraction',target:'肩甲骨の間（菱形筋など）',refs:['shoulderBlade'],demo:'shoulderBlade'},
+  'free-calf': {name:'Standing calf stretch',target:'後ろ脚のふくらはぎ',refs:['nhsStretch'],demo:'nhsStretch'},
+  'toe-raise': {name:'Toe raises against a wall',target:'すねの前（前脛骨筋など）',refs:['toeWall'],demo:'toeWall'},
+  'chest-open': {name:'Standing chest stretch',target:'胸と肩の前',refs:['chestStretch'],demo:'chestStretch'},
+  'sit-straddle': {name:'Seated straddle stretch',target:'内もも・太もも裏',refs:['straddle'],demo:'straddle'},
+  'sit-spinal': {name:'Seated spinal twist',target:'体側・背中・股関節',refs:['spinalTwist'],demo:'spinalTwist'},
+  'straight-raise': {name:'Straight leg raise',target:'太もも前と股関節の前',refs:['straightLeg'],demo:'straightLeg'},
+  'knee-roll': {name:'Knee rolls',target:'体幹・股関節をゆっくり動かす',refs:['kneeRollNhs'],demo:'kneeRollNhs'},
+  'figure-four': {name:'Supine figure-four stretch',target:'お尻と股関節の後ろ',refs:['nhsStretch'],demo:'nhsStretch'},
   'kneel-hinge': {name:'Tall-kneeling hip hinge',target:'お尻・股関節と姿勢を保つ体幹',refs:['ace'],variant:true}
 };
 
@@ -98,5 +116,8 @@ export const curatedSource = {
   squat:'ace', calf:'wallCalf', 'wall-push':'nhsStrength', 'step-up':'step',
   'calf-stretch':'wallStretch', 'side-bend':'sideBend', 'sit-press':'ankleMedia',
   'sit-ham':'iowa', 'sit-hips':'iowa', bridge:'hip', 'band-open':'bandHip',
-  pelvic:'floor', 'back-ham':'nhsStretch', fallout:'floor', bird:'core', 'rock-stretch':'rock'
+  pelvic:'floor', 'back-ham':'nhsStretch', fallout:'floor', bird:'core', 'rock-stretch':'rock',
+  'hip-hinge':'bodyHinge', 'scapular-squeeze':'shoulderBlade', 'free-calf':'nhsStretch',
+  'toe-raise':'toeWall', 'chest-open':'chestStretch', 'sit-straddle':'straddle', 'sit-spinal':'spinalTwist',
+  'straight-raise':'straightLeg', 'knee-roll':'kneeRollNhs', 'figure-four':'nhsStretch'
 };
