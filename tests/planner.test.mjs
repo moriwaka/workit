@@ -216,7 +216,7 @@ test('guide waits for equipment or posture changes and advances automatically ot
   globalThis.requestAnimationFrame=()=>{};
   globalThis.document={hidden:false};
   globalThis.window={};
-  const {Guide}=await import('../guide.js?v=12');
+  const {Guide}=await import('../guide.js?v=13');
   const settings={...defaultSettings,voice:false,known:['march','warm-heel','wall-push','sit-hips']};
   const rows=[
     {id:'march',seconds:5,rest:0},{id:'warm-heel',seconds:5,rest:2},
@@ -271,7 +271,7 @@ test('heel digs alternate with only the forward heel touching and its toes eleva
 test('the foot guides distinguish sole, heel and toe contact on the floor and the step', async () => {
   globalThis.matchMedia=()=>({matches:false});
   globalThis.requestAnimationFrame=()=>{};
-  const {footContacts}=await import('../media.js?v=12');
+  const {footContacts}=await import('../media.js?v=13');
   const contacts=(pose)=>footContacts(pose,diagramFloor).map(({kind})=>kind);
   for (const [id,expected] of [
     ['toe-raise',['heel','heel']], ['calf',['toe','toe']], ['sit-ankles',['heel','heel']],

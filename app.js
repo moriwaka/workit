@@ -1,7 +1,7 @@
 import {poses, gear, zones, purposes, phases, levels, exercises, catalog, seatedDiagrams, stepStages, heelDigStages, footGuides} from './catalog.js?v=12';
 import {defaultSettings, ratingLabels, statusLabels, generate, estimate, alternatives, allowed, fullSequence, floorChanges, validate, repSeconds, explainPlan, menuMinutes} from './planner.js?v=12';
-import {attachDiagram, setDiagramFrame, announce, voiceAvailable, silence, unlockSound} from './media.js?v=12';
-import {Guide} from './guide.js?v=12';
+import {attachDiagram, setDiagramFrame, announce, voiceAvailable, silence, unlockSound} from './media.js?v=13';
+import {Guide} from './guide.js?v=13';
 import {curatedSource, evidence, intensity, references} from './evidence.js?v=12';
 
 const app = document.querySelector('#app');

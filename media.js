@@ -248,14 +248,14 @@ function draw(canvas, first, last, ratio, stepIndex = 0) {
 
 export function attachDiagram(canvas, exercise) {
   const poses = frames(exercise);
-  diagrams.set(canvas,{exercise,poses,started:performance.now(),paused:reducedMotion.matches});
+  diagrams.set(canvas,{exercise,poses,started:null,paused:reducedMotion.matches});
   draw(canvas,poses[0],poses[0],0);
 }
 
 export function setDiagramFrame(canvas, frame) {
   const state = diagrams.get(canvas);
   state.paused = frame !== 'play';
-  state.started = performance.now();
+  state.started = null;
   const last = state.poses.length-1;
   const index = frame === 'end' ? (last===4 ? 1 : last) : frame.startsWith('pose-') ? Number(frame.slice(5)) : 0;
   draw(canvas,state.poses[index],state.poses[index],index ? 1 : 0,index);
@@ -276,6 +276,9 @@ function animate(now) {
     const state = diagrams.get(canvas);
     if (!state || state.paused || state.exercise.still) continue;
     const cycle = state.exercise.type === 'stretch' ? 5 : 4;
+    // Use the frame clock for both ends of the interval. A pending frame's
+    // timestamp can precede the click that opened or replayed the diagram.
+    state.started ??= now;
     const elapsed = (now - state.started) / 1000;
     if (state.poses.length>2) {
       drawSequence(canvas,state,elapsed);
