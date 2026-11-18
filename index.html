@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f5f4f9">
+<title>workit — 自宅トレーニング</title>
+<link rel="icon" href="./icon.svg">
+<link rel="stylesheet" href="./style.css">
+<script type="module" src="./app.js"></script>
+</head>
+<body>
+<div class="shell">
+  <header class="top">
+    <a class="brand" href="#plan" aria-label="workit ホーム"><img src="./icon.svg" alt="">workit<span>.</span></a>
+    <nav aria-label="メインメニュー">
+      <a href="#plan">メニュー作成</a><a href="#saved">保存メニュー</a><a href="#history">履歴</a><a href="#settings">設定</a>
+    </nav>
+  </header>
+  <main id="app"></main>
+  <footer><a href="#safety">運動前の確認・出典</a><span>設定・履歴はこのブラウザに保存されます</span></footer>
+</div>
+<dialog id="dialog"></dialog>
+<div role="status" id="notice" class="notice" hidden></div>
+</body>
+</html>
