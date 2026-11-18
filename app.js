@@ -1,8 +1,8 @@
-import {poses, gear, zones, purposes, phases, levels, exercises, catalog, seatedDiagrams} from './catalog.js?v=4';
-import {defaultSettings, ratingLabels, statusLabels, generate, estimate, alternatives, allowed, fullSequence, floorChanges, validate, repSeconds} from './planner.js?v=4';
-import {attachDiagram, setDiagramFrame, announce, voiceAvailable, silence, unlockSound} from './media.js?v=4';
-import {Guide} from './guide.js?v=4';
-import {curatedSource, evidence, intensity, references} from './evidence.js?v=4';
+import {poses, gear, zones, purposes, phases, levels, exercises, catalog, seatedDiagrams} from './catalog.js?v=6';
+import {defaultSettings, ratingLabels, statusLabels, generate, estimate, alternatives, allowed, fullSequence, floorChanges, validate, repSeconds, explainPlan, menuMinutes} from './planner.js?v=6';
+import {attachDiagram, setDiagramFrame, announce, voiceAvailable, silence, unlockSound} from './media.js?v=6';
+import {Guide} from './guide.js?v=6';
+import {curatedSource, evidence, intensity, references} from './evidence.js?v=6';
 
 const app = document.querySelector('#app');
 const dialog = document.querySelector('#dialog');
@@ -22,7 +22,8 @@ let plan = null;
 let session = null;
 let summary = null;
 let messageTimer;
-let planMessage = '';
+let failedOptions = null;
+let planSuggestions = [];
 
 const escape = value => String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const button = (text, action, style='', value='', attrs='') =>
@@ -98,7 +99,10 @@ function description(item) {
 function duration(row) {
   const side = exercises[row.id].sides;
   const value = row.seconds ?? row.reps;
-  return `${side ? '左右各' : ''}${value / (side ? 2 : 1)}${row.seconds ? '秒' : '回'}`;
+  const perSide = value / (side ? 2 : 1);
+  return (side ? '左右各' : '') + (row.seconds
+    ? perSide>=60 ? humanTime(perSide) : `${perSide}秒`
+    : `${perSide}回`);
 }
 
 function details(item) {
@@ -118,27 +122,31 @@ const hero = `<section class="hero">
 </section>`;
 
 function renderPlan() {
+  planSuggestions = [];
   app.innerHTML = hero + `<div class="layout">
   <form id="plan-form" class="panel stack">
     <h2>メニュー作成</h2>
     <fieldset><legend>目的</legend><div class="chips">${choices(purposes,[options.purpose],'purpose','radio')}</div></fieldset>
-    <fieldset><legend>所要時間の目安</legend><div class="chips">${[10,15,20,30,40].map(n => checkbox(n,`${n}分`,options.minutes===n,'minutes','radio')).join('')}</div></fieldset>
+    <fieldset><legend>所要時間の目安</legend><div class="chips">${menuMinutes.map(n => checkbox(n,`${n}分`,options.minutes===n,'minutes','radio')).join('')}</div></fieldset>
     <fieldset><legend>今日できる姿勢</legend><div class="chips">${choices(selectablePoses,options.poses,'pose')}</div></fieldset>
     <p class="subtle">強度 ${levels[data.settings.level]}　·　道具 ${data.settings.gear.map(key => gear[key]).join('、') || 'なし'}　<a href="#settings">変更</a></p>
     <button class="btn primary wide" type="submit">メニューを作る <span aria-hidden="true">→</span></button>
-    ${planMessage ? `<p class="alert" role="status">${escape(planMessage)}</p>` : ''}
   </form>
   <section class="panel" aria-label="作成したメニュー">
-    ${plan ? planMarkup() : `<div class="section-title"><h2>トレーニングメニュー</h2></div><p class="empty">既存の運動資料に掲載されている種目から、条件に合う順番を組みます。</p>`}
+    ${plan ? planMarkup() : `<div class="section-title"><h2>トレーニングメニュー</h2></div>
+      ${failedOptions ? limitationNotice(failedOptions,null) : '<p class="empty">既存の運動資料に掲載されている種目から、条件に合う順番を組みます。</p>'}`}
   </section></div>`;
 }
+
+const mainRows = rows => rows.filter(row=>['strength','stretch'].includes(exercises[row.id].type));
 
 function planMarkup() {
   const time = estimate(plan.rows);
   return `<div class="section-title"><h2>${escape(plan.name)}</h2><span class="badge">約${humanTime(time)}</span></div>
-    <p class="subtle">${plan.rows.length-2}種目 ＋ 準備運動・整理運動　·　種目名を押すと動き・負荷部位・出典を確認できます</p>
+    <p class="subtle">${mainRows(plan.rows).length}種目 ＋ 準備運動・整理運動　·　種目名を押すと動き・負荷部位・出典を確認できます</p>
     ${planNotice()}
-    ${Object.entries(phases).map(([phase,label]) => `<section class="routine-section"><h3>${label}</h3>
+    ${Object.entries(phases).map(([phase,label]) => `<section class="routine-section"><h3>${label}${phase==='main' ? '' :
+      ` · 約${humanTime(estimate(plan.rows.filter(row=>exercises[row.id].type===phase)))}`}</h3>
       ${plan.rows.map((row,index) => {
         const item = exercises[row.id];
         const kind = ['warm','cool'].includes(item.type) ? item.type : 'main';
@@ -156,13 +164,38 @@ function planNotice() {
   }
   if (!validPlan()) return '<p class="alert">現在の設定で使えない種目があります。差し替えるか、メニューを作り直してください。</p>';
   if (floorChanges(plan.rows) > 1) return '<p class="alert">このメニューは立位と床を複数回切り替えます。「メニューを作る」を押すと、現在の条件で姿勢をまとめたメニューを作れます。</p>';
-  const time = estimate(plan.rows);
-  const types = new Set(plan.rows.slice(1,-1).map(row => exercises[row.id].type));
-  const missingType = plan.options.purpose === 'mixed' && types.size < 2;
-  if (plan.options.minutes*60 - time > 75 || missingType) {
-    return '<p class="alert">選んだ条件で組める範囲のメニューです。種目や所要時間をご確認ください。</p>';
-  }
-  return '';
+  return limitationNotice(plan.options,plan.rows);
+}
+
+function limitationNotice(request, rows) {
+  const limitation = explainPlan(request,data.settings,rows);
+  if (!limitation) return '';
+  planSuggestions = limitation.suggestions;
+  const labels = {strength:'筋力',stretch:'柔軟性'};
+  const reasons = {
+    poses:'できる姿勢が選ばれていません。今日できる姿勢を選んでください。',
+    main:'選んだ姿勢・目的・設定に合う本編の種目がありません。',
+    warm:'選んだ姿勢と設定で使えるウォームアップがありません。',
+    cool:'選んだ姿勢と設定で使えるクールダウンがありません。',
+    type:'選んだ姿勢と設定に合う種目が、片方の種類に限られています。',
+    sequence:'条件に合う本編の候補は ${limitation.eligibleMain} 種目です。同じ部位への負荷が続かず、立位と床を往復しない順番で組んだ結果です。',
+    fit:'休憩・準備運動・整理運動を含めると、今の条件で本編まで組めません。'
+  };
+  const summary = rows
+    ? `指定 ${request.minutes}分 → 約${humanTime(limitation.time)}${limitation.gap>75 ? `（約${humanTime(limitation.gap)}短い）` : ''}`
+    : `指定 ${request.minutes}分のメニューを作れませんでした`;
+  const missing = rows && limitation.missing.length ? `<p>${limitation.missing.map(type=>labels[type]).join('・')}の種目を組み込めませんでした。</p>` : '';
+  const actions = planSuggestions.map((item,index)=>{
+    const label = item.kind==='pose' ? `「${poses[item.value]}」を追加`
+      : item.kind==='time' ? `${item.value}分に変更` : `目的を「${purposes[item.value]}」に変更`;
+    return button(`${label}（約${humanTime(item.time)}）`,'apply-plan-suggestion','small',index);
+  });
+  const next = actions.length
+    ? `<p>${rows ? '今のメニューで始めることもできます。' : ''}今日できる条件があれば、下のボタンで作り直せます。</p><div class="actions">${actions.join('')}</div>`
+    : rows ? '<p>この時間でそのまま始められます。</p>'
+      : limitation.reason==='poses' ? '' : '<p>使える道具があれば <a href="#settings">設定</a> に追加するか、別の目的・姿勢を選んでください。</p>';
+  return `<div class="alert plan-limit" role="region" aria-label="メニューの条件"><p><strong>${summary}</strong></p>
+    ${missing}<p>${reasons[limitation.reason]}</p>${next}</div>`;
 }
 
 function validPlan() {
@@ -173,7 +206,7 @@ function validPlan() {
 function renderSaved() {
   app.innerHTML = `<section class="page"><div class="page-head"><h1>保存メニュー</h1><a class="btn" href="#plan">メニュー作成</a></div>
   <div class="stack">${data.saved.length ? data.saved.map(entry => `<article class="panel list-card">
-  <h2>${escape(entry.name)}</h2><p class="subtle">${purposes[entry.options.purpose]} · 約${humanTime(estimate(entry.rows))} · ${entry.rows.length-2}種目</p>
+  <h2>${escape(entry.name)}</h2><p class="subtle">${purposes[entry.options.purpose]} · 約${humanTime(estimate(entry.rows))} · ${mainRows(entry.rows).length}種目</p>
   <div class="actions">${button('メニューを開く','open-plan','primary',entry.id)}${button('削除','delete-plan-dialog','danger',entry.id)}</div></article>`).join('') : '<p class="empty">保存したメニューはまだありません。</p>'}</div></section>`;
 }
 
@@ -218,10 +251,13 @@ const safetyContent = `<p>体調と足元を確認し、軽い強度から始め
 
 function renderSafety() {
   app.innerHTML = `<section class="page"><div class="page-head"><h1>運動前の確認・出典</h1></div><article class="panel readable">
-    ${safetyContent}<h2>強度の決め方</h2>
+    ${safetyContent}<h2>ウォームアップとクールダウン</h2>
+    <p>準備運動は軽い足踏みなどから始め、本編で使う関節を小さく動かします。整理運動は徐々にペースを落とし、姿勢や道具の条件が合えば軽いストレッチを入れます。短時間・低強度の室内メニューや、床の姿勢に限定したメニューでは時間を調整します。</p>
+    <h2>強度の決め方</h2>
     <p>準備運動は会話できる軽いペースから始めます。筋トレは無理なく続けられる回数から始め、フォームと運動後のきつさを見て徐々に調整します。ストレッチは軽い張りを目安にします。表示する回数・秒数は workit の開始設定です。</p>
     <h2>参考資料</h2><ul>
     <li>${sourceLink('jpStrength')}</li><li>${sourceLink('cdc')}</li>
+    <li>${sourceLink('nhsWarm')}</li><li>${sourceLink('nhsStretch')}</li><li>${sourceLink('nhsCool')}</li>
     <li><a href="https://kennet.mhlw.go.jp/information/information/exercise/s-00-008.html" target="_blank" rel="noopener noreferrer">厚生労働省「身体活動・運動を安全に行うためのポイント」</a></li>
     <li><a href="https://www.heart.org/en/healthy-living/exercise-and-physical-activity/fitness-basics/warm-up-cool-down" target="_blank" rel="noopener noreferrer">American Heart Association「Warm Up, Cool Down」</a></li>
     <li><a href="https://www.cuh.nhs.uk/patient-information/hip-strengthening-exercises/" target="_blank" rel="noopener noreferrer">Cambridge University Hospitals「Hip strengthening exercises」</a></li>
@@ -446,6 +482,13 @@ app.addEventListener('input',event => {
   if (event.target.name === 'volume') document.querySelector('#volume-label').textContent = event.target.value+'%';
 });
 
+function setGeneratedPlan(next,rows) {
+  options = structuredClone(next);
+  failedOptions = rows ? null : structuredClone(options);
+  plan = rows ? {name:purposes[options.purpose]+'メニュー',options:structuredClone(options),rows} : null;
+  renderPlan();
+}
+
 document.addEventListener('submit',event => {
   if (event.target.id !== 'plan-form' && event.target.id !== 'save-form') return;
   event.preventDefault();
@@ -460,14 +503,7 @@ document.addEventListener('submit',event => {
     return;
   }
   const rows = generate(options,data.settings);
-  planMessage = '';
-  if (!rows) {
-    plan = null;
-    planMessage = '選んだ条件で準備運動・本編・整理運動を組めません。姿勢、目的、道具、部位の除外設定を確認してください。';
-  } else {
-    plan = {name:purposes[options.purpose]+'メニュー',options:structuredClone(options),rows};
-  }
-  renderPlan();
+  setGeneratedPlan(options,rows);
 });
 
 document.addEventListener('click',event => {
@@ -477,6 +513,16 @@ document.addEventListener('click',event => {
   const s = data.settings;
   switch (action) {
     case 'close': dialog.close(); break;
+    case 'apply-plan-suggestion': {
+      const suggestion = planSuggestions[Number(value)];
+      if (suggestion) {
+        setGeneratedPlan(suggestion.options,suggestion.rows);
+        const heading = app.querySelector('[aria-label="作成したメニュー"] h2');
+        heading?.setAttribute('tabindex','-1');
+        heading?.focus();
+      }
+      break;
+    }
     case 'preview': {
       const item = exercises[value];
       openDialog(`<h2>${escape(item.name)}</h2><p class="subtle">${details(item)}</p>${diagram(item)}${description(item)}
@@ -510,7 +556,7 @@ document.addEventListener('click',event => {
       if (!entry) break;
       plan = structuredClone(entry);
       options = {...plan.options,poses:plan.options.poses.filter(pose => Object.hasOwn(selectablePoses,pose))};
-      planMessage = '';
+      failedOptions = null;
       go('plan');
       break;
     }
@@ -606,7 +652,7 @@ document.addEventListener('click',event => {
         data = pendingImport;
         plan = null;
         summary = null;
-        planMessage = '';
+        failedOptions = null;
         snackbar('バックアップを復元しました。');
       } catch { snackbar('ブラウザに保存できなかったため、復元を中止しました。'); }
       pendingImport = null;

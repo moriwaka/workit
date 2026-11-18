@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {catalog, exercises, poses, purposes} from '../catalog.js?v=4';
-import {curatedSource, evidence, intensity, references} from '../evidence.js?v=4';
-import {allowed, alternatives, defaultSettings, estimate, floorChanges, fullSequence, generate} from '../planner.js?v=4';
+import {catalog, exercises, poses, purposes} from '../catalog.js?v=6';
+import {curatedSource, evidence, intensity, references} from '../evidence.js?v=6';
+import {allowed, alternatives, defaultSettings, estimate, floorChanges, fullSequence, generate, validate, explainPlan} from '../planner.js?v=6';
 
 const defaultOptions = {purpose:'stretch', minutes:15, poses:Object.keys(poses)};
 
@@ -78,4 +78,61 @@ test('only source-checked exercises are eligible, including when swapping a move
   for (const index of plan.keys()) {
     assert.ok(alternatives(plan,index,options,defaultSettings).every(row=>Object.hasOwn(curatedSource,row.id)));
   }
+});
+
+test('warm-up progresses from light movement and cooldown slows down before stretch holds', () => {
+  const standing = {...defaultOptions,poses:['stand'],minutes:20};
+  const plan = generate(standing,defaultSettings,()=>.42);
+  const warm = plan.filter(row=>exercises[row.id].type==='warm');
+  const cool = plan.filter(row=>exercises[row.id].type==='cool');
+  assert.equal(warm[0].id,'march');
+  assert.ok(warm.length>=3);
+  assert.ok(estimate(warm)>=300);
+  assert.equal(cool[0].id,'slow-march');
+  assert.ok(cool.slice(1).every(row=>exercises[row.id].held && row.seconds===40));
+  assert.ok(estimate(cool)>=300);
+  const backup = rows => ({version:1,settings:defaultSettings,history:[],
+    saved:[{id:'demo',name:'テスト',rows,options:standing}]});
+  assert.deepEqual(validate(backup(plan)).saved[0].rows,plan);
+  const old = [{id:'march',seconds:120,rest:0},{id:'side-bend',seconds:30,rest:25},
+    {id:'slow-march',seconds:120,rest:10}];
+  assert.deepEqual(validate(backup(old)).saved[0].rows,old);
+  assert.throws(()=>validate(backup([old[0],old[2],old[1],old[2]])));
+});
+
+test('seated and supine preparations and recovery stay on the selected posture', () => {
+  for (const pose of ['sit','back']) {
+    const plan = generate({...defaultOptions,poses:[pose]},defaultSettings,()=>.42);
+    assert.ok(plan);
+    assert.ok(plan.every(row=>exercises[row.id].pose===pose));
+    assert.ok(plan.filter(row=>exercises[row.id].type==='warm').length>=2);
+    const cool = plan.filter(row=>exercises[row.id].type==='cool');
+    assert.ok(exercises[cool.at(-1).id].id.endsWith('-breathe'));
+    assert.ok(cool[0].id==='cool-slide' || cool[0].id==='cool-sit-ankles');
+  }
+});
+
+test('limited plans report duration and only offer changes backed by an eligible menu', () => {
+  const options = {purpose:'mixed',minutes:20,poses:['sit']};
+  const settings = {...defaultSettings,blocked:['shoulder']};
+  const rows = generate(options,settings,()=>0);
+  const result = explainPlan(options,settings,rows);
+  assert.equal(result.time,estimate(rows));
+  assert.equal(result.gap,1200-estimate(rows));
+  assert.equal(result.reason,'sequence');
+  assert.ok(result.suggestions.some(item=>item.kind==='pose'));
+  for (const item of result.suggestions) {
+    assert.equal(item.time,estimate(item.rows));
+    assert.ok(item.rows.every(row=>allowed(exercises[row.id],item.options,settings)));
+    assert.ok(fullSequence(item.rows));
+    assert.ok(floorChanges(item.rows)<=1);
+  }
+  const noPose = explainPlan({...options,poses:[]},settings,null);
+  assert.equal(noPose.reason,'poses');
+  assert.ok(noPose.suggestions.every(item=>item.kind==='pose'));
+  const noMain = explainPlan({...options,purpose:'strength',poses:['all4']},settings,null);
+  assert.equal(noMain.reason,'main');
+  const fit = {...options,poses:['stand']};
+  const complete = generate(fit,defaultSettings,()=>0);
+  assert.equal(explainPlan({...fit,minutes:estimate(complete)/60},defaultSettings,complete),null);
 });

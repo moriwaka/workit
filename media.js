@@ -1,4 +1,4 @@
-import {frames, seatedDiagrams} from './catalog.js?v=4';
+import {frames, seatedDiagrams} from './catalog.js?v=6';
 
 const pink = '#ed865f';
 const purple = '#523290';
@@ -117,6 +117,12 @@ function animate(now) {
     if (!state || state.paused || state.exercise.still) continue;
     const cycle = state.exercise.type === 'stretch' ? 5 : 4;
     const elapsed = (now - state.started) / 1000;
+    if (state.exercise.held) {
+      const ratio = Math.max(0,Math.min(1,(elapsed-.7)/1.4));
+      draw(canvas,state.exercise,state.first,state.last,ratio);
+      if (ratio===1) state.paused = true;
+      continue;
+    }
     const phase = (elapsed % cycle) / cycle;
     const posed = Math.max(0,Math.min(1,(phase % .5 - .08) / .34));
     const eased = posed * posed * (3 - 2 * posed);

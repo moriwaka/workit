@@ -1,6 +1,6 @@
-import {exercises, phases} from './catalog.js?v=4';
-import {compatible, effort, nextLoad, repSeconds} from './planner.js?v=4';
-import {announce, silence} from './media.js?v=4';
+import {exercises, phases} from './catalog.js?v=6';
+import {compatible, effort, nextLoad, repSeconds} from './planner.js?v=6';
+import {announce, silence} from './media.js?v=6';
 
 export class Guide {
   constructor(plan, settings, callbacks) {
@@ -69,7 +69,11 @@ export class Guide {
     this.stopAudio();
     this.reset('work',true);
     this.lastLoad = nextLoad(this.row,this.lastLoad);
-    this.speak(this.row.reps ? '始めます。' : '始めます。無理のない範囲で。', 880);
+    const prompt = this.exercise.type === 'warm' ? '軽い動きから始めます。'
+      : this.exercise.held ? '軽く伸ばし、その姿勢を保ちます。'
+      : this.exercise.type === 'cool' ? 'ペースを落とします。力を抜きましょう。'
+      : this.row.reps ? '始めます。' : '始めます。無理のない範囲で。';
+    this.speak(prompt,880);
     this.callbacks.render(true);
   }
 
@@ -122,6 +126,12 @@ export class Guide {
         return;
       }
       if (this.exercise.sides && this.elapsed >= this.limit/2) this.cue('side','反対側へ。',590);
+      else if (!this.exercise.sides && this.elapsed >= this.limit/2) {
+        if (this.row.id==='march') this.cue('pace','息が上がらない範囲で、いつもの歩くペースへ。',590);
+        if (this.row.id==='slow-march' || this.row.id==='cool-slide' || this.row.id==='cool-sit-ankles') {
+          this.cue('pace','動きを小さくして、もう少しゆっくり。',590);
+        }
+      }
     }
     this.callbacks.render(false);
   }
@@ -135,7 +145,9 @@ export class Guide {
 
   complete() {
     if (this.phase !== 'work' || this.paused) return;
-    if (this.exercise.type === 'warm') this.warmed = true;
+    if (this.exercise.type==='warm'
+      && !this.plan.rows.slice(this.index+1).some(row=>exercises[row.id].type==='warm')
+      && this.results.every(result=>result.status==='done')) this.warmed = true;
     this.advance('done');
   }
 

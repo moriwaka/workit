@@ -1,5 +1,5 @@
-import {catalog, exercises, poses, gear, zones, purposes} from './catalog.js?v=4';
-import {curatedSource} from './evidence.js?v=4';
+import {catalog, exercises, poses, gear, zones, purposes} from './catalog.js?v=6';
+import {curatedSource} from './evidence.js?v=6';
 
 export const defaultSettings = {
   gear: ['wall'], blocked: [], excluded: [], level: 0, voice: true, volume: 75, known: [], adjustments: {}
@@ -69,6 +69,41 @@ export function floorChanges(rows) {
     count + floorChange(exercises[rows[index].id].pose,exercises[row.id].pose),0);
 }
 
+const phaseExercises = {
+  stand:{warm:['march','warm-heel','warm-knee','warm-shoulder'],cool:['slow-march','cool-calf','cool-side']},
+  sit:{warm:['sit-ankles','warm-sit-hip'],cool:['cool-sit-ankles','cool-sit-ham','cool-sit-hip','sit-breathe']},
+  back:{warm:['heel-slide','warm-pelvic'],cool:['cool-slide','cool-back-ham','back-breathe']},
+  all4:{warm:['rock-warm'],cool:['rock-cool']}
+};
+
+function phasePlan(pool, targetPose, phase, minutes, firstMove) {
+  const candidatePoses = [targetPose,...Object.keys(poses).filter(pose=>pose!==targetPose
+    && !floorChange(targetPose,pose)),...Object.keys(poses).filter(pose=>floorChange(targetPose,pose))];
+  const available = new Set(pool.map(item=>item.id));
+  const ids = candidatePoses.map(pose=>phaseExercises[pose]?.[phase].filter(id=>available.has(id)) ?? [])
+    .find(items=>items.length);
+  if (!ids) return [];
+  const standard = minutes >= 20;
+  if (phase === 'warm' && firstMove?.load.includes('shoulder') && ids.includes('warm-shoulder')) {
+    ids.splice(ids.indexOf('warm-shoulder'),1);
+    ids.push('warm-shoulder');
+  } else if (phase === 'warm' && firstMove?.load.includes('quad') && ids.includes('warm-knee')) {
+    ids.splice(ids.indexOf('warm-knee'),1);
+    ids.push('warm-knee');
+  }
+  return ids.map((id,index)=>{
+    const item = exercises[id];
+    let seconds;
+    if (item.held) seconds = (standard ? 20 : 15) * (item.sides ? 2 : 1);
+    else if (id === 'march') seconds = standard ? 150 : 90;
+    else if (id === 'slow-march') seconds = standard ? 225 : 90;
+    else if (item.pose === 'stand') seconds = standard ? (id === 'warm-heel' ? 60 : 45) : 30;
+    else if (item.pose === 'all4') seconds = 35;
+    else seconds = standard ? 60 : 40;
+    return {id,seconds,rest:phase==='warm' && index===0 ? 0 : 10};
+  });
+}
+
 export function generate(options, settings, random = Math.random) {
   const pool = catalog.filter(item => allowed(item, options, settings));
   const warm = pool.filter(item => item.type === 'warm');
@@ -78,17 +113,12 @@ export function generate(options, settings, random = Math.random) {
   if (!warm.length || !cool.length || !main.length) return null;
 
   const seconds = options.minutes * 60;
-  const phaseSeconds = seconds >= 1200 ? 300 : seconds >= 900 ? 210 : 120;
-  const shortPose = item => ['all4','kneel'].includes(item.pose);
-  const endForPose = (items,pose) =>
-    items.find(item => item.pose === pose && !shortPose(item))
-    ?? items.find(item => !floorChange(item.pose,pose) && !shortPose(item))
-    ?? items.find(item => item.pose === pose)
-    ?? items.find(item => !floorChange(item.pose,pose))
-    ?? items.find(item => !shortPose(item)) ?? items[0];
-  const openings = Object.fromEntries(Object.keys(poses).map(pose => [pose,endForPose(warm,pose)]));
-  const closings = Object.fromEntries(Object.keys(poses).map(pose => [pose,endForPose(cool,pose)]));
-  const phaseDose = item => shortPose(item) ? 45 : phaseSeconds;
+  const byId = (items, key) => Object.fromEntries(items.map(item=>[item.id,
+    phasePlan(key==='warm' ? warm : cool,item.pose,key,options.minutes,item)]));
+  const openings = byId(main,'warm');
+  const closings = byId(main,'cool');
+  const warmTimes = Object.fromEntries(main.map(item=>[item.id,estimate(openings[item.id])]));
+  const coolTimes = Object.fromEntries(main.map(item=>[item.id,estimate(closings[item.id])+10]));
   const maxRepeats = seconds >= 1800 ? 3 : 2;
   const priorities = Object.fromEntries(main.map(item => [item.id, random()]));
 
@@ -111,21 +141,24 @@ export function generate(options, settings, random = Math.random) {
         const row = dose(item, settings);
         const time = candidate.time + effort(row) + row.rest;
         if (!compatible(row,last) || candidate.rows.filter(previous => previous.id === row.id).length >= maxRepeats) continue;
-        const firstPose = candidate.firstPose ?? item.pose;
-        const opening = openings[firstPose];
-        const closing = closings[item.pose];
-        if (time + phaseDose(opening) + phaseDose(closing) + 10 > seconds) continue;
+        const firstId = candidate.rows[0]?.id ?? item.id;
+        const firstPose = exercises[firstId].pose;
+        const opening = openings[firstId];
+        const closing = closings[item.id];
+        if (!opening.length || !closing.length || time + warmTimes[firstId] + coolTimes[item.id] > seconds) continue;
+        const warmPose = exercises[opening.at(-1).id].pose;
+        const coolPose = exercises[closing[0].id].pose;
         const lastPose = last ? exercises[last.id].pose : item.pose;
         const mainFloorChanges = candidate.mainFloorChanges + floorChange(lastPose,item.pose);
-        const standingFloorChanges = mainFloorChanges + floorChange(opening.pose,firstPose) + floorChange(item.pose,closing.pose);
+        const standingFloorChanges = mainFloorChanges + floorChange(warmPose,firstPose) + floorChange(item.pose,coolPose);
         if (standingFloorChanges > 1) continue;
         const mainPoseChanges = candidate.mainPoseChanges + Number(lastPose !== item.pose);
         expanded.push({
           rows:[...candidate.rows,row], used:new Set([...candidate.used,item.id]),
-          types:new Set([...candidate.types,item.type]), time, firstPose, opening, closing,
+          types:new Set([...candidate.types,item.type]), time, opening, closing,
           mainFloorChanges, mainPoseChanges,
           floorChanges:standingFloorChanges,
-          poseChanges:mainPoseChanges + Number(opening.pose !== firstPose) + Number(item.pose !== closing.pose),
+          poseChanges:mainPoseChanges + Number(warmPose !== firstPose) + Number(item.pose !== coolPose),
           preference:candidate.preference + priorities[item.id]
         });
       }
@@ -137,22 +170,84 @@ export function generate(options, settings, random = Math.random) {
   if (!best) return null;
 
   const {opening,closing} = best;
-  return [
-    {...dose(opening,settings), seconds:phaseDose(opening), rest:0},
-    ...best.rows,
-    {...dose(closing,settings), seconds:phaseDose(closing), rest:10}
-  ];
+  return [...opening,...best.rows,...closing];
+}
+
+export const menuMinutes = [10,15,20,30,40];
+
+function mainTypes(rows) {
+  return new Set(rows?.map(row=>exercises[row.id].type).filter(type=>['strength','stretch'].includes(type)));
+}
+
+export function explainPlan(options, settings, rows) {
+  const time = rows ? estimate(rows) : 0;
+  const types = mainTypes(rows);
+  const missing = options.purpose==='mixed' ? ['strength','stretch'].filter(type=>!types.has(type)) : [];
+  const gap = options.minutes*60-time;
+  if (rows && gap<=75 && !missing.length) return null;
+
+  const eligible = catalog.filter(item=>allowed(item,options,settings));
+  const eligibleMain = eligible.filter(item=>['strength','stretch'].includes(item.type)
+    && (options.purpose==='mixed' || item.type===options.purpose));
+  const eligibleTypes = new Set(eligibleMain.map(item=>item.type));
+  const reason = !options.poses.length ? 'poses'
+    : !eligibleMain.length ? 'main'
+    : !eligible.some(item=>item.type==='warm') ? 'warm'
+    : !eligible.some(item=>item.type==='cool') ? 'cool'
+    : missing.some(type=>!eligibleTypes.has(type)) ? 'type'
+    : rows ? 'sequence' : 'fit';
+
+  const suggestions = [];
+  const tryOption = (change, kind, value) => {
+    const next = {...options,...change};
+    const candidate = generate(next,settings,()=>0);
+    if (!candidate) return;
+    const duration = estimate(candidate);
+    const nextTypes = mainTypes(candidate);
+    const addsType = missing.some(type=>nextTypes.has(type)) && [...types].every(type=>nextTypes.has(type));
+    const keepsTypes = [...types].every(type=>nextTypes.has(type));
+    const fitsBetter = next.minutes*60-duration < gap
+      && (kind==='time' ? next.minutes*60-duration<=75 : duration>=time);
+    if (!rows || addsType || (keepsTypes && (fitsBetter || duration >= time+45))) {
+      suggestions.push({kind,value,options:next,rows:candidate,time:duration,addsType});
+    }
+  };
+
+  for (const pose of Object.keys(phaseExercises)) {
+    if (!options.poses.includes(pose)) tryOption({poses:[...options.poses,pose]},'pose',pose);
+  }
+  if (rows && gap>75) {
+    const shorter = menuMinutes.find(minutes=>minutes<options.minutes && minutes*60>=time-75);
+    if (shorter) tryOption({minutes:shorter},'time',shorter);
+  } else if (!rows && options.minutes<40) {
+    for (const longer of menuMinutes.filter(minutes=>minutes>options.minutes)) {
+      tryOption({minutes:longer},'time',longer);
+      if (suggestions.some(item=>item.kind==='time')) break;
+    }
+  }
+  if (!rows && options.poses.length) {
+    for (const purpose of Object.keys(purposes)) {
+      if (purpose!==options.purpose) tryOption({purpose},'purpose',purpose);
+    }
+  }
+  suggestions.sort((a,b)=>Number(b.addsType)-Number(a.addsType)
+    || (options.minutes*60-a.time<0) - (options.minutes*60-b.time<0)
+    || Math.abs(options.minutes*60-a.time)-Math.abs(options.minutes*60-b.time));
+  return {reason,gap,time,missing,eligibleMain:eligibleMain.length,suggestions:suggestions.slice(0,3)};
 }
 
 export function alternatives(rows, index, options, settings) {
   const current = exercises[rows[index].id];
   const candidates = catalog.filter(item => item.id !== current.id && allowed(item, options, settings)
     && (item.type === current.type || (options.purpose === 'mixed'
-      && ['strength','stretch'].includes(item.type) && ['strength','stretch'].includes(current.type))));
+      && ['strength','stretch'].includes(item.type) && ['strength','stretch'].includes(current.type))))
+    .filter(item => !['warm','cool'].includes(current.type)
+      || (Boolean(current.held)===Boolean(item.held) && !rows.some(row=>row.id===item.id)));
   return candidates.map(item => {
     const row = dose(item, settings);
     if (['warm','cool'].includes(current.type)) {
-      row.seconds = ['all4','kneel'].includes(item.pose) ? Math.min(45,rows[index].seconds) : rows[index].seconds;
+      if (item.held) row.seconds = (options.minutes>=20 ? 20 : 15) * (item.sides ? 2 : 1);
+      else row.seconds = Math.min(item.pose==='all4' ? 35 : 90,rows[index].seconds);
       row.rest = rows[index].rest;
     }
     return row;
@@ -203,8 +298,11 @@ export function validate(data) {
       || !numberBetween(entry.options.minutes,10,40) || !Array.isArray(entry.rows)
       || entry.rows.length < 3 || entry.rows.length > 30) throw new Error('保存メニューが不正です。');
     const rows = entry.rows.map(cleanRow);
-    if (estimate(rows) > entry.options.minutes*60 || !fullSequence(rows) || exercises[rows[0].id].type !== 'warm' || exercises[rows.at(-1).id].type !== 'cool'
-      || rows.slice(1,-1).some(row => ['warm','cool'].includes(exercises[row.id].type))) throw new Error('保存メニューの並び順が不正です。');
+    const order = rows.map(row=>({warm:0,strength:1,stretch:1,cool:2})[exercises[row.id].type]);
+    if (estimate(rows) > entry.options.minutes*60 || !fullSequence(rows) || order[0]!==0 || order.at(-1)!==2
+      || !order.includes(1) || order.some((phase,index)=>index>0 && phase<order[index-1])) {
+      throw new Error('保存メニューの並び順が不正です。');
+    }
     return {id:entry.id, name:entry.name, options:{
       purpose:entry.options.purpose, minutes:entry.options.minutes, poses:uniqueKeys(entry.options.poses, poses)
     }, rows};

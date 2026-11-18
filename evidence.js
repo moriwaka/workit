@@ -4,6 +4,7 @@ export const references = {
   cdc: ['CDC「Measuring Physical Activity Intensity」','https://www.cdc.gov/physical-activity-basics/measuring/index.html'],
   nhsWarm: ['NHS「How to warm up before exercising」','https://www.nhs.uk/live-well/exercise/how-to-warm-up-before-exercising/'],
   nhsStrength: ['NHS「Strength exercises」','https://www.nhs.uk/live-well/exercise/strength-exercises/'],
+  nhsCool: ['NHS「Cool-down video」','https://www.nhs.uk/live-well/exercise/strength-and-resistance/body-blast-cool-down/'],
   nhsStretch: ['NHS「How to stretch after exercising」','https://www.nhs.uk/live-well/exercise/how-to-stretch-after-exercising/'],
   ace: ['ACE「Exercise Library」','https://www.acefitness.org/resources/everyone/exercise-library/experience/beginner/'],
   hip: ['Cambridge University Hospitals「Hip strengthening exercises」','https://www.cuh.nhs.uk/patient-information/hip-strengthening-exercises/'],
@@ -64,6 +65,22 @@ export const evidence = {
   'kneel-hinge': {name:'Tall-kneeling hip hinge',target:'お尻・股関節と姿勢を保つ体幹',refs:['ace'],variant:true}
 };
 
+const stageSources = {
+  'warm-heel':['march','nhsWarm'], 'warm-shoulder':['march','nhsWarm'], 'warm-knee':['squat','nhsWarm'],
+  'warm-sit-hip':['sit-hips','aceButterfly'], 'warm-pelvic':['pelvic','floor'],
+  'cool-slide':['heel-slide','floor'], 'cool-sit-ankles':['sit-ankles','longAnkles'],
+  'cool-calf':['calf-stretch','wallStretch'], 'cool-side':['side-bend','sideBend'],
+  'cool-sit-ham':['sit-ham','iowa'], 'cool-sit-hip':['sit-hips','iowa'], 'cool-back-ham':['back-ham','nhsStretch']
+};
+const stageInfo = {
+  'warm-heel':{name:'Heel digs',target:'足首・太ももを小さく動かす'},
+  'warm-shoulder':{name:'Shoulder rolls',target:'肩・肩甲骨まわりを動かす'},
+  'warm-knee':{name:'Knee bends'}
+};
+for (const [id,[base,key]] of Object.entries(stageSources)) {
+  evidence[id] = {...evidence[base],refs:[...new Set([key,...evidence[base].refs])],...stageInfo[id]};
+}
+
 export const intensity = {
   warm:'軽い動き。会話できるペースから始め、息が上がる手前で調整。',
   cool:'軽い動き。少しずつペースを落として呼吸を整える。',
@@ -74,6 +91,7 @@ export const intensity = {
 // Existing exercises with a matching movement and compatible setup.
 // Keep retired IDs in the catalog for reading old backups and history.
 export const curatedSource = {
+  ...Object.fromEntries(Object.entries(stageSources).map(([id,[,source]])=>[id,source])),
   march:'nhsWarm', 'slow-march':'nhsWarm',
   'sit-ankles':'longAnkles', 'sit-breathe':'floorBreath', 'heel-slide':'floor',
   'back-breathe':'floorBreath', 'rock-warm':'rock', 'rock-cool':'rock',

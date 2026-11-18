@@ -24,6 +24,9 @@ const kneel = { head:[150,62], neck:[150,81], hip:[151,130], ls:[139,87], rs:[16
 const bases = {stand:standing, sit:sitting, back:supine, all4, kneel};
 const motions = {
   march: [{rk:[177,135],rf:[180,168]}, {lk:[124,135],lf:[119,169]}],
+  heelDig: [{rk:[169,151],rf:[189,196]}, {lk:[132,151],lf:[115,196]}],
+  shoulderRoll: [{}, {ls:[140,59],rs:[162,59],le:[135,89],re:[168,89],lh:[136,112],rh:[169,112]}],
+  kneeBend: [{lh:[184,74],rh:[201,76],le:[164,79],re:[179,81]}, {head:[154,48],neck:[154,69],hip:[146,133],ls:[143,74],rs:[165,74],lh:[184,82],rh:[201,84],le:[166,84],re:[180,85],lk:[135,163],rk:[172,163]}],
   toe: [{rk:[165,160],rf:[185,195]}, {lk:[128,157],lf:[108,195]}],
   squat: [{}, {head:[153,58],neck:[153,79],ls:[141,85],rs:[166,85],le:[136,109],re:[168,108],lh:[144,119],rh:[159,119],hip:[151,145],lk:[125,167],rk:[178,167]}],
   calf: [{}, {head:[151,29],neck:[151,50],ls:[140,56],rs:[162,56],le:[135,86],re:[168,86],lh:[136,109],rh:[169,109],hip:[151,113],lk:[139,148],rk:[164,148],lf:[146,189],rf:[174,189]}],
@@ -114,5 +117,30 @@ export const catalog = [
   exercise('rock-stretch','ロックバック（四つん這いでお尻を引く）','all4','rock','stretch',['hip','core','shoulder','quad'],['手と膝を床につける。','手の位置を保ち、お尻をかかとに向けて少し引く。'],'肩や膝がつらくなる手前で止める。'),
   exercise('kneel-hinge','膝立ちの股関節曲げ','kneel','kneelHinge','strength',['hip','core','quad'],['両膝を腰幅に開き、膝立ちになる。','お尻を少し後ろへ引き、上体をわずかに前に倒して戻る。'],'腰を丸めず、膝に痛みがあれば飛ばす。')
 ];
+
+// Phase variants use the same illustrated movement and setup as their source.
+function phaseVariant(id,baseId,name,type,steps,extra={}) {
+  const base = catalog.find(item=>item.id===baseId);
+  catalog.push({...base,id,name,type,steps,...extra});
+}
+
+catalog.push(
+  exercise('warm-heel','かかとを前へ出す（ヒールディグ）','stand','heelDig','warm',['calf','quad','hip'],['両足で立ち、支える側の膝を軽くゆるめる。','片足のかかとを前に置き、つま先を上げて戻す。左右交互に。'],'一歩を小さくし、バランスを保てるペースで。'),
+  exercise('warm-shoulder','小さく肩を回す','stand','shoulderRoll','warm',['shoulder','upper'],['両腕を体の横に下ろす。','肩を前へ数回、後ろへ数回、小さく回す。'],'腕を上げず、肩に痛みが出ない範囲で。'),
+  exercise('warm-knee','浅い膝曲げ','stand','kneeBend','warm',['hip','quad','core','shoulder'],['足を肩幅にし、無理のない高さで手を前に出す。','膝を軽く曲げて数センチ下がり、ゆっくり戻る。'],'膝を深く曲げず、手を前に出すと肩が痛む場合は飛ばす。')
+);
+phaseVariant('warm-sit-hip','sit-hips','足裏を合わせて膝を小さく開く','warm',
+  ['床に座って足裏を合わせる。','膝を自然に開く範囲でゆっくり開き、少し戻す。'],{held:false});
+phaseVariant('warm-pelvic','pelvic','仰向けで骨盤を軽く動かす','warm',
+  ['膝を立てて仰向けになり、背中を楽にする。','腰と床のすき間を小さくして戻す。余計な力を入れずにゆっくり繰り返す。']);
+phaseVariant('cool-slide','heel-slide','仰向けでかかとをゆっくり滑らせる','cool',
+  ['仰向けで膝を立てる。','左右交互にかかとを滑らせ、動く範囲とペースを少しずつ落とす。']);
+phaseVariant('cool-sit-ankles','sit-ankles','足首の動きをゆっくりにする','cool',
+  ['床に座り、脚を前に出す。','かかとを床につけたまま、つま先を前後に動かす。次第に動きを小さく、ゆっくりにする。']);
+for (const [baseId,id] of [['calf-stretch','cool-calf'],['side-bend','cool-side'],
+    ['sit-ham','cool-sit-ham'],['sit-hips','cool-sit-hip'],['back-ham','cool-back-ham']]) {
+  const base = catalog.find(item=>item.id===baseId);
+  phaseVariant(id,baseId,base.name,'cool',[...base.steps,'軽い張りを感じたら、息を止めずにその姿勢を保つ。'],{held:true});
+}
 
 export const exercises = Object.fromEntries(catalog.map(item => [item.id,item]));

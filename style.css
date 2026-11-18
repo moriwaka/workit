@@ -119,3 +119,6 @@ dialog .stack { gap:9px }
 .guide-copy .alert { margin-top:8px }
 
 .demo-reference { margin-top:8px; font-size:.85rem }
+
+.plan-limit { margin-top:12px; display:grid; gap:6px }
+.plan-limit .btn.small { white-space:normal; text-align:left }
