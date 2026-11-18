@@ -1,7 +1,7 @@
 import {poses, gear, zones, purposes, phases, levels, exercises, catalog, seatedDiagrams, stepStages, heelDigStages, footGuides} from './catalog.js?v=12';
-import {defaultSettings, ratingLabels, statusLabels, generate, estimate, alternatives, allowed, fullSequence, floorChanges, validate, repSeconds, explainPlan, menuMinutes} from './planner.js?v=12';
+import {defaultSettings, ratingLabels, statusLabels, generate, estimate, alternatives, allowed, floorChanges, validate, repSeconds, explainPlan, menuMinutes} from './planner.js?v=14';
 import {attachDiagram, setDiagramFrame, announce, voiceAvailable, silence, unlockSound} from './media.js?v=13';
-import {Guide} from './guide.js?v=13';
+import {Guide} from './guide.js?v=14';
 import {curatedSource, evidence, intensity, references} from './evidence.js?v=12';
 
 const app = document.querySelector('#app');
@@ -214,7 +214,7 @@ function limitationNotice(request, rows) {
     warm:'選んだ姿勢と設定で使えるウォームアップがありません。',
     cool:'選んだ姿勢と設定で使えるクールダウンがありません。',
     type:'選んだ姿勢と設定に合う種目が、片方の種類に限られています。',
-    sequence:`条件に合う本編の候補は ${limitation.eligibleMain} 種目です。同じ部位への負荷が続かず、立位と床を往復しない順番で組んだ結果です。`,
+    sequence:`条件に合う本編の候補は ${limitation.eligibleMain} 種目です。立位と床を往復せず、各種目の運動時間と休憩を含めて組んだ結果です。`,
     fit:'休憩・準備運動・整理運動を含めると、今の条件で本編まで組めません。'
   };
   const summary = rows
@@ -235,7 +235,7 @@ function limitationNotice(request, rows) {
 }
 
 function validPlan() {
-  return plan && !planNeedsRefresh() && fullSequence(plan.rows) && plan.rows.every(row => allowed(exercises[row.id],plan.options,data.settings)
+  return plan && !planNeedsRefresh() && plan.rows.every(row => allowed(exercises[row.id],plan.options,data.settings)
     && options.poses.includes(exercises[row.id].pose));
 }
 

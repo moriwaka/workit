@@ -1,5 +1,5 @@
 import {exercises, phases} from './catalog.js?v=12';
-import {compatible, effort, nextLoad, repSeconds} from './planner.js?v=12';
+import {effort, repSeconds} from './planner.js?v=14';
 import {announce, silence} from './media.js?v=13';
 
 export class Guide {
@@ -10,7 +10,6 @@ export class Guide {
     this.index = 0;
     this.phase = 'preview';
     this.results = [];
-    this.lastLoad = null;
     this.lastExercise = null;
     this.prepared = false;
     this.active = 0;
@@ -86,7 +85,6 @@ export class Guide {
     if (this.paused || !this.canBegin || document.hidden || !['preview','rest','waiting'].includes(this.phase)) return;
     this.stopAudio();
     this.reset('work',true);
-    this.lastLoad = nextLoad(this.row,this.lastLoad);
     this.lastExercise = this.exercise;
     const prompt = this.exercise.type === 'warm' ? '軽い動きから始めます。'
       : this.exercise.held ? '軽く伸ばし、その姿勢を保ちます。'
@@ -180,10 +178,6 @@ export class Guide {
     this.stopAudio();
     if (!alreadyRecorded) this.record(status);
     this.index++;
-    while (this.index < this.plan.rows.length && !compatible(this.row,this.lastLoad)) {
-      this.results.push({row:this.row,status:'overlap',rating:''});
-      this.index++;
-    }
     if (this.index >= this.plan.rows.length) {
       this.finish(false);
       return;

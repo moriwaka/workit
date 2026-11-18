@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {catalog, exercises, poses, purposes, frames, stepLayout, stepStages, heelDigFloor, heelDigStages, diagramFloor, footGuides} from '../catalog.js?v=12';
 import {curatedSource, evidence, intensity, references} from '../evidence.js?v=12';
-import {allowed, alternatives, defaultSettings, estimate, floorChanges, fullSequence, generate, validate, explainPlan} from '../planner.js?v=12';
+import {allowed, alternatives, defaultSettings, estimate, floorChanges, generate, validate, explainPlan} from '../planner.js?v=14';
 
 const defaultOptions = {purpose:'stretch', minutes:15, poses:Object.keys(poses)};
 
@@ -13,10 +13,9 @@ test('the reported floor-to-standing round trips count across warm-up and cooldo
   const replacement = generate(defaultOptions,defaultSettings,()=>.42);
   assert.ok(replacement);
   assert.ok(floorChanges(replacement)<=1);
-  assert.ok(fullSequence(replacement));
 });
 
-test('generator keeps standing and floor in blocks while honoring load, available equipment, and time', () => {
+test('generator keeps standing and floor in blocks while honoring excluded regions, equipment, and time', () => {
   let plans = 0;
   for (let mask=1; mask<(1<<Object.keys(poses).length); mask++) {
     for (const purpose of Object.keys(purposes)) {
@@ -31,7 +30,6 @@ test('generator keeps standing and floor in blocks while honoring load, availabl
           if (!plan) continue;
           plans++;
           assert.ok(estimate(plan)<=minutes*60);
-          assert.ok(fullSequence(plan));
           assert.ok(plan.every(row=>allowed(exercises[row.id],options,settings) && Object.hasOwn(curatedSource,row.id)));
           assert.ok(floorChanges(plan)<=1,JSON.stringify({options,plan}));
         }
@@ -41,18 +39,40 @@ test('generator keeps standing and floor in blocks while honoring load, availabl
   assert.ok(plans>900);
 });
 
-test('substitutions preserve the posture limit and body-region alternation', () => {
+test('substitutions preserve the posture and time limits', () => {
   const plan = generate(defaultOptions,defaultSettings,()=>.42);
   let substitutions = 0;
   for (const index of plan.keys()) {
     for (const option of alternatives(plan,index,defaultOptions,defaultSettings)) {
       const replaced = plan.with(index,option);
-      assert.ok(fullSequence(replaced));
       assert.ok(floorChanges(replaced)<=1);
+      assert.ok(estimate(replaced)<=defaultOptions.minutes*60);
       substitutions++;
     }
   }
   assert.ok(substitutions>0);
+});
+
+test('same-region exercises can be generated, swapped and restored from a backup', () => {
+  const options = {purpose:'strength',minutes:10,poses:['stand']};
+  const settings = {...defaultSettings,excluded:Object.keys(curatedSource).filter(id=>
+    exercises[id].type==='strength' && id!=='calf' && id!=='toe-raise')};
+  const generated = generate(options,settings,()=>0);
+  const main = generated.filter(row=>exercises[row.id].type==='strength');
+  assert.ok(main.length>=2);
+  assert.deepEqual(new Set(main.map(row=>row.id)),new Set(['calf','toe-raise']));
+  assert.ok(main.every(row=>exercises[row.id].load.includes('calf')));
+
+  const rows = [{id:'march',seconds:45,rest:0},{id:'calf',reps:4,rest:30},
+    {id:'squat',reps:4,rest:30},{id:'slow-march',seconds:45,rest:10}];
+  const swap = alternatives(rows,2,options,defaultSettings).find(row=>row.id==='toe-raise');
+  assert.ok(swap);
+  const saved = [{id:'test-saved',name:'テスト',options,rows:rows.with(2,swap)}];
+  const history = [{id:'test-history',name:'テスト',date:new Date(0).toISOString(),active:0,ended:false,
+    rating:'',results:[{row:swap,status:'overlap',rating:''}]}];
+  const restored = validate({version:1,settings:defaultSettings,saved,history});
+  assert.deepEqual(restored.saved,saved);
+  assert.deepEqual(restored.history,history);
 });
 
 test('every exercise has a load description, intensity guidance, and references', () => {
@@ -124,7 +144,6 @@ test('limited plans report duration and only offer changes backed by an eligible
   for (const item of result.suggestions) {
     assert.equal(item.time,estimate(item.rows));
     assert.ok(item.rows.every(row=>allowed(exercises[row.id],item.options,settings)));
-    assert.ok(fullSequence(item.rows));
     assert.ok(floorChanges(item.rows)<=1);
   }
   const noPose = explainPlan({...options,poses:[]},settings,null);
@@ -216,11 +235,11 @@ test('guide waits for equipment or posture changes and advances automatically ot
   globalThis.requestAnimationFrame=()=>{};
   globalThis.document={hidden:false};
   globalThis.window={};
-  const {Guide}=await import('../guide.js?v=13');
+  const {Guide}=await import('../guide.js?v=14');
   const settings={...defaultSettings,voice:false,known:['march','warm-heel','wall-push','sit-hips']};
   const rows=[
     {id:'march',seconds:5,rest:0},{id:'warm-heel',seconds:5,rest:2},
-    {id:'wall-push',reps:4,rest:2},{id:'sit-hips',seconds:10,rest:2}
+    {id:'wall-push',reps:4,rest:2},{id:'wall-push',reps:4,rest:2},{id:'sit-hips',seconds:10,rest:2}
   ];
   const guide=new Guide({name:'テスト',rows},settings,{save(){},render(){},finish(){}});
   const endRest=()=>{guide.offset=guide.limit+1;guide.tick();};
@@ -236,6 +255,11 @@ test('guide waits for equipment or posture changes and advances automatically ot
     endRest();
     assert.equal(guide.phase,'waiting');
     guide.confirmPreparation();
+    assert.equal(guide.phase,'work');
+    guide.complete();
+    assert.equal(guide.row.id,'wall-push');
+    assert.equal(guide.needsPreparation,false);
+    endRest();
     assert.equal(guide.phase,'work');
     guide.complete();
     assert.equal(guide.needsPreparation,true);

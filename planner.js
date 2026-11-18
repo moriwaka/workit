@@ -7,11 +7,8 @@ export const defaultSettings = {
 
 export const repSeconds = 4;
 export const ratingLabels = {easy:'余裕あり', okay:'ちょうどよい', hard:'きつい'};
+// Keep the old overlap status readable in existing histories and backups.
 export const statusLabels = {done:'完了', skipped:'スキップ', excluded:'今後も除外', pain:'痛みで停止', stopped:'中断', overlap:'負荷の重複でスキップ'};
-
-export function overlaps(a, b) {
-  return Boolean(a && b && a.load.some(zone => b.load.includes(zone)));
-}
 
 export function allowed(exercise, options, settings) {
   return Object.hasOwn(curatedSource,exercise.id)
@@ -40,26 +37,6 @@ export function effort(row) {
 
 export function estimate(rows) {
   return rows.reduce((total, row, index) => total + effort(row) + (index ? row.rest : 0), 0);
-}
-
-export function compatible(row, previous) {
-  // Gentle preparation and recovery are outside the loaded main sequence.
-  const exercise = exercises[row.id];
-  if (['warm','cool'].includes(exercise.type)) return true;
-  return !overlaps(exercise, previous ? exercises[previous.id] : null);
-}
-
-export function nextLoad(row, previous) {
-  return ['strength','stretch'].includes(exercises[row.id].type) ? row : previous;
-}
-
-export function fullSequence(rows) {
-  let previous = null;
-  for (const row of rows) {
-    if (!compatible(row, previous)) return false;
-    previous = nextLoad(row, previous);
-  }
-  return true;
 }
 
 function floorChange(first, second) {
@@ -146,7 +123,7 @@ export function generate(options, settings, random = Math.random) {
       for (const item of main) {
         const row = dose(item, settings);
         const time = candidate.time + effort(row) + row.rest;
-        if (!compatible(row,last) || candidate.rows.filter(previous => previous.id === row.id).length >= maxRepeats) continue;
+        if (candidate.rows.filter(previous => previous.id === row.id).length >= maxRepeats) continue;
         const firstId = candidate.rows[0]?.id ?? item.id;
         const firstPose = exercises[firstId].pose;
         const opening = openings[firstId];
@@ -259,7 +236,7 @@ export function alternatives(rows, index, options, settings) {
     return row;
   }).filter(row => {
     const changed = rows.with(index, row);
-    return fullSequence(changed) && estimate(changed) <= options.minutes * 60
+    return estimate(changed) <= options.minutes * 60
       && floorChanges(changed) <= Math.max(1,floorChanges(rows));
   }).sort((a,b) => floorChanges(rows.with(index,a)) - floorChanges(rows.with(index,b))
     || Number(exercises[b.id].pose === current.pose) - Number(exercises[a.id].pose === current.pose));
@@ -305,7 +282,7 @@ export function validate(data) {
       || entry.rows.length < 3 || entry.rows.length > 30) throw new Error('保存メニューが不正です。');
     const rows = entry.rows.map(cleanRow);
     const order = rows.map(row=>({warm:0,strength:1,stretch:1,cool:2})[exercises[row.id].type]);
-    if (estimate(rows) > entry.options.minutes*60 || !fullSequence(rows) || order[0]!==0 || order.at(-1)!==2
+    if (estimate(rows) > entry.options.minutes*60 || order[0]!==0 || order.at(-1)!==2
       || !order.includes(1) || order.some((phase,index)=>index>0 && phase<order[index-1])) {
       throw new Error('保存メニューの並び順が不正です。');
     }
