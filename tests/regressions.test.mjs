@@ -115,3 +115,16 @@ test('skipping a warm-up requires confirmation before the main exercise starts',
   guide.begin();
   assert.equal(guide.phase,'work');
 });
+
+test('skipping rest starts the pending exercise without recording another skip', async t => {
+  const rows = [{id:'march',seconds:45,rest:0},{id:'squat',reps:4,rest:30}];
+  const {guide} = await workout(t,rows);
+  guide.begin();
+  guide.advance('skipped');
+  assert.equal(guide.phase,'rest');
+  guide.warmed = true;
+  guide.skipRest();
+  assert.equal(guide.phase,'work');
+  assert.equal(guide.index,1);
+  assert.deepEqual(guide.results,[{row:rows[0],status:'skipped',rating:''}]);
+});

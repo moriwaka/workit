@@ -8,6 +8,7 @@ export class Guide {
     this.settings = settings;
     this.callbacks = callbacks;
     this.index = 0;
+    this.skipOptions = new Set();
     this.phase = 'preview';
     this.results = [];
     this.lastExercise = null;
@@ -117,6 +118,18 @@ export class Guide {
     this.callbacks.render(true);
   }
 
+  skipRest() {
+    if (this.phase !== 'rest') return;
+    this.reset('waiting');
+    if (this.canBegin && !document.hidden) {
+      this.begin();
+    } else {
+      this.stopAudio();
+      this.speak('休憩終了です。画面を確認してください。',740);
+      this.callbacks.render(true);
+    }
+  }
+
   tick() {
     if (document.hidden) {
       this.pause();
@@ -126,12 +139,7 @@ export class Guide {
     const left = Math.ceil(this.limit-this.elapsed);
     if (this.phase === 'rest') {
       if (left <= 0) {
-        if (this.canBegin) this.begin();
-        else {
-          this.reset('waiting');
-          this.speak('休憩終了です。画面を確認してください。',740);
-          this.callbacks.render(true);
-        }
+        this.skipRest();
         return;
       }
       if (left <= 3 && this.canBegin) this.cue('rest'+left, String(left),600);
@@ -205,6 +213,7 @@ export class Guide {
     this.stopAudio();
     if (!alreadyRecorded) this.record(status);
     this.index++;
+    this.skipOptions.clear();
     if (this.index >= this.plan.rows.length) {
       this.finish(false);
       return;

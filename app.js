@@ -1,7 +1,7 @@
 import {poses, gear, zones, phases, levels, exercises, catalog, isMainType, seatedDiagrams, diagramStages, footGuides} from './catalog.js?v=17';
 import {defaultSettings, ratingLabels, statusLabels, generate, estimate, alternatives, allowed, arrangePhasePostures, validate, repSeconds, explainPlan, menuMinutes, setLabels, sideSwitchSeconds, selectedTrainingTypes} from './planner.js?v=23';
 import {attachDiagram, setDiagramFrame, announce, voiceAvailable, silence, unlockSound} from './media.js?v=24';
-import {Guide} from './guide.js?v=24';
+import {Guide} from './guide.js?v=26';
 import {curatedSource, evidence, intensity, references} from './evidence.js?v=17';
 import {defaultLibraryFilters, exerciseTypes, filterExercises, libraryExercise, libraryGear, libraryPoses, trainingTypes, workoutBreakdown} from './workout-view.js?v=11';
 import {hiitGroups, hiitSubgroups} from './hiit-library.js?v=3';
@@ -444,15 +444,14 @@ function renderGuide(focus=false) {
     else if (guide.phase==='preview') primary = button('運動を開始','begin','primary');
     else if (guide.phase==='work' && guide.row.reps) primary = button(guide.firstSide ? '片側を終えた' : '完了','done','primary');
   }
-  const fixedControls = guide.phase==='pain' ? primary
+  const fixedControls = guide.phase==='pain'
+    ? primary + button('症状が落ち着いたので種目を飛ばす','pain-skip')
     : primary + (guide.paused ? button('再開','resume','primary') : button('一時停止','pause'))
-      + button('痛みが出た','pain','danger');
-  const secondary = guide.phase==='pain'
-    ? button('症状が落ち着いたので種目を飛ばす','pain-skip')
-    : (!guide.paused && preview ? button('説明を聞く','replay') : '')
-      + button('スキップ','skip')
-      + '<details class="guide-more"><summary>その他の操作</summary>'
-      + button('今後も除外','exclude-dialog') + '</details>';
+      + `<div class="guide-skip" role="group" aria-label="スキップの操作">
+        ${button('スキップ','skip')}
+        ${checkbox('exclude','今後も除外',guide.skipOptions.has('exclude'),'skip-option')}
+        ${checkbox('pain','痛みがでた',guide.skipOptions.has('pain'),'skip-option')}
+      </div>`;
   app.innerHTML = `<div class="guide-head"><h1>${guide.phaseLabel}</h1><div class="inline"><span class="subtle">${guide.index+1} / ${guide.plan.rows.length}</span>
     ${document.fullscreenEnabled ? button(document.fullscreenElement ? '全画面を閉じる' : '全画面','fullscreen','small','',`aria-pressed="${Boolean(document.fullscreenElement)}"`) : ''}
     ${button('終了','guide-end-dialog','danger small')}</div></div>
@@ -470,7 +469,6 @@ function renderGuide(focus=false) {
       ${preview && guide.needsPreparation ? '<p class="alert">姿勢や道具が変わります。「準備できた」を押すまで次の種目は始まりません。</p>' : ''}
       <div class="guide-next"><span class="mini">${next ? 'この種目の次' : '最後の種目'}</span><p>${next ? `${escape(exercises[next.id].name)}${nextSet ? ` · ${nextSet}` : ''}` : '終わったら、今日の記録を確認しましょう。'}</p>
         ${next ? `<span class="subtle">${duration(next)} · 前に休憩 ${next.rest}秒${item.pose!==exercises[next.id].pose ? ` · ${libraryPoses[exercises[next.id].pose]}へ` : ''}</span>` : ''}</div>
-      <div class="controls">${secondary}</div>
     </section></div>
     <div class="guide-actions" role="group" aria-label="運動中の操作"><div>${fixedControls}</div></div>`;
   initDiagrams(app);
@@ -657,6 +655,9 @@ app.addEventListener('change',async event => {
       pendingImport = validate(JSON.parse(await file.text()));
       confirmDialog('バックアップを復元する',`保存メニュー${pendingImport.saved.length}件、履歴${pendingImport.history.length}件と設定を復元します。このブラウザの現在のデータが置き換わります。`,'restore','','復元する');
     } catch { snackbar('復元できませんでした。workit で保存したJSONファイルを選んでください。'); }
+  } else if (input.name === 'skip-option' && session) {
+    if (input.checked) session.skipOptions.add(input.value);
+    else session.skipOptions.delete(input.value);
   } else if (['gear','blocked'].includes(input.name)) {
     const list = data.settings[input.name];
     data.settings[input.name] = input.checked ? [...new Set([...list,input.value])] : list.filter(key => key!==input.value);
@@ -811,10 +812,6 @@ document.addEventListener('click',event => {
     case 'pause': session?.pause(); break;
     case 'resume': session?.resume(); break;
     case 'done': session?.complete(); break;
-    case 'replay':
-      session?.stopAudio();
-      if (session) session.speak(session.exercise.steps.join('')+session.exercise.cue,520);
-      break;
     case 'confirm-warm':
       if (session) {
         session.warmed = true;
@@ -822,21 +819,21 @@ document.addEventListener('click',event => {
         else renderGuide(true);
       }
       break;
-    case 'skip': session?.advance('skipped'); break;
-    case 'exclude-dialog':
-      session?.pause();
-      confirmDialog('この種目を今後も除外する','現在の種目をスキップし、今後のメニュー候補から外します。設定から元に戻せます。','exclude','','除外する');
-      break;
-    case 'exclude':
-      if (session) {
-        if (!s.excluded.includes(session.row.id)) s.excluded.push(session.row.id);
+    case 'skip': {
+      if (!session) break;
+      const exclude = session.skipOptions.has('exclude');
+      const pain = session.skipOptions.has('pain');
+      if (exclude) {
         const exerciseId = session.row.id;
+        if (!s.excluded.includes(exerciseId)) s.excluded.push(exerciseId);
         session.plan.rows = session.plan.rows.filter((row,index) => index <= session.index || row.id !== exerciseId);
         save();
-        dialog.close();
-        session.advance('excluded');
       }
+      if (pain) session.pain();
+      else if (!exclude && session.phase === 'rest') session.skipRest();
+      else session.advance(exclude ? 'excluded' : 'skipped');
       break;
+    }
     case 'allow':
       s.excluded = s.excluded.filter(id => id!==value);
       save();
@@ -847,7 +844,6 @@ document.addEventListener('click',event => {
       save();
       renderSettings();
       break;
-    case 'pain': session?.pain(); break;
     case 'pain-skip': session?.advance('pain',true); break;
     case 'guide-end-dialog':
       session?.pause();
