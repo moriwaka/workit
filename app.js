@@ -28,7 +28,6 @@ let messageTimer;
 let failedOptions = null;
 let planSuggestions = [];
 let libraryFilters = {...defaultLibraryFilters};
-const libraryPageSize = 24;
 let guideFullscreen = false;
 
 const escape = value => String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -297,8 +296,7 @@ function renderLibrary() {
       <thead><tr><th scope="col">種目</th><th scope="col">姿勢</th><th scope="col" class="library-conditions">道具・強度</th></tr></thead>
       <tbody id="library-results"></tbody>
     </table>
-    <div id="library-empty" class="empty" hidden><p>条件に合う種目がありません。</p><p>検索語や絞り込みを変えてみてください。</p></div>
-    <div id="library-more" class="library-more" hidden>${button('さらに表示','more-library')}</div></section>`;
+    <div id="library-empty" class="empty" hidden><p>条件に合う種目がありません。</p><p>検索語や絞り込みを変えてみてください。</p></div></section>`;
   updateLibraryResults();
 }
 
@@ -306,19 +304,16 @@ function libraryEquipment(item) {
   return item.gear.map(key=>libraryGear[key]).join('・') || '道具なし';
 }
 
-function updateLibraryResults(append=false) {
+function updateLibraryResults() {
   const matches = filterExercises(libraryFilters,data.settings);
-  const results = document.querySelector('#library-results');
-  const start = append ? results.rows.length : 0;
-  const end = Math.min(start + libraryPageSize,matches.length);
   const {query,pose,type,classification,availableOnly,noJump} = libraryFilters;
   const advancedCount = [pose,type,classification,availableOnly].filter(Boolean).length;
   document.querySelector('#library-active-count').textContent = advancedCount ? `（${advancedCount}件を適用中）` : '';
   document.querySelector('#library-reset').hidden = !(query || noJump || advancedCount);
-  document.querySelector('#library-count').textContent = `${matches.length}種目${end < matches.length ? `（${end}件を表示）` : ''}`;
+  document.querySelector('#library-count').textContent = `${matches.length}種目`;
   document.querySelector('#library-table').hidden = !matches.length;
   document.querySelector('#library-empty').hidden = Boolean(matches.length);
-  const rows = matches.slice(start,end).map(item=> {
+  document.querySelector('#library-results').innerHTML = matches.map(item=> {
     const equipment = `${libraryEquipment(item)} · ${levels[item.level]}${item.jumps ? ' · ジャンプあり' : ''}`;
     const availability = item.available ? '' : '<span class="library-meta">現在の設定では対象外</span>';
     return `<tr><th scope="row">
@@ -328,13 +323,6 @@ function updateLibraryResults(append=false) {
       </th><td><span class="badge">${libraryPoses[item.pose]}</span></td>
       <td class="library-conditions">${equipment}${availability}</td></tr>`;
   }).join('');
-  if (append) {
-    results.insertAdjacentHTML('beforeend',rows);
-    results.rows[start]?.querySelector('button').focus();
-  } else {
-    results.innerHTML = rows;
-  }
-  document.querySelector('#library-more').hidden = end >= matches.length;
 }
 
 function readLibraryFilters(form) {
@@ -740,7 +728,6 @@ document.addEventListener('click',event => {
       renderLibrary();
       document.querySelector('#library-filters input').focus();
       break;
-    case 'more-library': updateLibraryResults(true); break;
     case 'fullscreen': toggleFullscreen(); break;
     case 'close': dialog.close(); break;
     case 'apply-plan-suggestion': {

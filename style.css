@@ -198,8 +198,6 @@ dialog .stack { gap:9px }
 .library-meta { display:block; color:var(--muted); font-size:.8rem; line-height:1.5 }
 .library-compact-conditions { display:none }
 .library-table td .library-meta { margin-top:4px }
-.library-more { margin:16px 0 0; text-align:center }
-.library-more .btn { min-height:44px }
 dialog:has(.preview-head) { padding-top:0 }
 .preview-head { position:sticky; top:0; z-index:1; display:flex; justify-content:space-between; align-items:flex-start; gap:10px; padding:16px 0 8px; background:var(--surface) }
 .preview-head h2 { margin:0 0 3px; overflow-wrap:anywhere }
