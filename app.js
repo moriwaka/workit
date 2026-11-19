@@ -58,11 +58,29 @@ function save() {
   }
 }
 
-function openDialog(markup) {
+let pressedBackdrop = false;
+
+function openDialog(markup, {dismissOnBackdrop = false} = {}) {
+  pressedBackdrop = false;
+  dialog.toggleAttribute('data-dismiss-on-backdrop',dismissOnBackdrop);
   dialog.innerHTML = markup;
   dialog.querySelector('h2').id = 'dialog-title';
   dialog.showModal();
 }
+
+function isBackdrop(event) {
+  if (event.target !== dialog) return false;
+  const {left,right,top,bottom} = dialog.getBoundingClientRect();
+  return event.clientX < left || event.clientX >= right || event.clientY < top || event.clientY >= bottom;
+}
+
+dialog.addEventListener('pointerdown',event => {
+  pressedBackdrop = dialog.hasAttribute('data-dismiss-on-backdrop') && isBackdrop(event);
+});
+dialog.addEventListener('click',event => {
+  if (pressedBackdrop && event.detail > 0 && isBackdrop(event)) dialog.close();
+  pressedBackdrop = false;
+});
 
 function confirmDialog(title, message, action, value='', label='確定') {
   openDialog(`<h2>${title}</h2><p>${message}</p><div class="actions end">${button('キャンセル','close')}${button(label,action,'danger',value)}</div>`);
@@ -759,7 +777,7 @@ document.addEventListener('click',event => {
       openDialog(`<header class="preview-head">
         <div><h2 tabindex="-1" autofocus>${escape(item.name)}</h2><p class="subtle">${[type,details(item)].filter(Boolean).join(' · ')}</p></div>
         ${button('閉じる','close','small')}
-        </header>${diagram(item)}${description(item)}`);
+        </header>${diagram(item)}${description(item)}`,{dismissOnBackdrop:action==='preview-library'});
       initDiagrams(dialog);
       break;
     }
