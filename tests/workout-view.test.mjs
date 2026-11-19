@@ -4,7 +4,36 @@ import {exercises, frames, levels, zones} from '../catalog.js?v=17';
 import {curatedSource, evidence, references} from '../evidence.js?v=17';
 import {allowed, alternatives, defaultSettings, estimate, generate, validate} from '../planner.js?v=23';
 import {hiitExercises, hiitSubgroups} from '../hiit-library.js?v=3';
-import {filterExercises, libraryExercise, libraryGear, libraryPoses, trainingTypes, workoutBreakdown} from '../workout-view.js?v=11';
+import {filterExercises, latestExerciseResults, libraryExercise, libraryGear, libraryPoses, trainingTypes, weeklyActivity, workoutBreakdown} from '../workout-view.js?v=12';
+
+test('previous exercise record uses the last set in the newest matching session', () => {
+  const older = {row:{id:'squat',reps:8},status:'done',rating:'easy'};
+  const first = {row:{id:'squat',reps:10},status:'done',rating:''};
+  const last = {...first,status:'skipped'};
+  const history = [
+    {date:'2026-11-19T00:00:00Z',results:[first,last]},
+    {date:'2026-11-18T00:00:00Z',results:[older]},
+    {date:'2026-11-20T00:00:00Z',results:[]}
+  ];
+  const latest = latestExerciseResults(history);
+  assert.equal(latest.get('squat').result,last);
+  assert.equal(latest.has('calf'),false);
+});
+
+test('weekly activity counts local days once and includes time before an early finish', () => {
+  const history = [
+    {date:new Date(2026,10,15,23,59).toISOString(),active:300},
+    {date:new Date(2026,10,16,0,0).toISOString(),active:60},
+    {date:new Date(2026,10,16,18,0).toISOString(),active:120},
+    {date:new Date(2026,10,18,12,0).toISOString(),active:30,ended:true},
+    {date:new Date(2026,10,20,12,0).toISOString(),active:0,ended:true},
+    {date:new Date(2026,10,22,23,59).toISOString(),active:90},
+    {date:new Date(2026,10,23,0,0).toISOString(),active:300}
+  ];
+  const sunday = new Date(2026,10,22,23,59);
+  assert.deepEqual(weeklyActivity(history,sunday),{days:3,seconds:300});
+  assert.deepEqual(weeklyActivity([],sunday),{days:0,seconds:0});
+});
 
 test('verified HIIT exercises generate timed cardio rows and survive backup restore', () => {
   const exercise = exercises['hiit-standing-jacks-low-impact'];

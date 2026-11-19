@@ -3,6 +3,38 @@ import {curatedSource, evidence} from './evidence.js?v=17';
 import {allowed, effort, sideSwitchSeconds} from './planner.js?v=23';
 import {hiitExercises, hiitGroups, hiitPoses, hiitSubgroups} from './hiit-library.js?v=3';
 
+export function latestExerciseResults(history) {
+  const latest = new Map();
+  for (const entry of history) {
+    const timestamp = Date.parse(entry.date);
+    for (const result of entry.results) {
+      const {id} = result.row;
+      const previous = latest.get(id);
+      if (!previous || timestamp >= previous.timestamp) {
+        latest.set(id,{result,timestamp});
+      }
+    }
+  }
+  return latest;
+}
+
+export function weeklyActivity(history, now = new Date()) {
+  const start = new Date(now);
+  start.setHours(0,0,0,0);
+  start.setDate(start.getDate() - (start.getDay()+6)%7);
+  const end = new Date(start);
+  end.setDate(end.getDate()+7);
+  const days = new Set();
+  let seconds = 0;
+  for (const entry of history) {
+    const date = new Date(entry.date);
+    if (date < start || date >= end || entry.active <= 0) continue;
+    days.add(date.getDay());
+    seconds += entry.active;
+  }
+  return {days:days.size,seconds};
+}
+
 export const exerciseTypes = {warm:'準備運動',strength:'筋力',stretch:'柔軟性',cool:'整理運動',cardio:'有酸素'};
 export const trainingTypes = {strength:exerciseTypes.strength,stretch:exerciseTypes.stretch,cardio:exerciseTypes.cardio};
 export const libraryPoses = {...poses,...hiitPoses};

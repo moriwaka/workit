@@ -3,7 +3,7 @@ import {defaultSettings, ratingLabels, statusLabels, generate, estimate, alterna
 import {attachDiagram, setDiagramFrame, announce, voiceAvailable, silence, unlockSound} from './media.js?v=24';
 import {Guide} from './guide.js?v=26';
 import {curatedSource, evidence, intensity, references} from './evidence.js?v=17';
-import {defaultLibraryFilters, exerciseTypes, filterExercises, libraryExercise, libraryGear, libraryPoses, trainingTypes, workoutBreakdown} from './workout-view.js?v=11';
+import {defaultLibraryFilters, exerciseTypes, filterExercises, latestExerciseResults, libraryExercise, libraryGear, libraryPoses, trainingTypes, weeklyActivity, workoutBreakdown} from './workout-view.js?v=12';
 import {hiitGroups, hiitSubgroups} from './hiit-library.js?v=3';
 
 const app = document.querySelector('#app');
@@ -196,6 +196,7 @@ function planMarkup() {
   const time = estimate(plan.rows);
   const labels = setLabels(plan.rows);
   const breakdown = workoutBreakdown(plan.rows);
+  const previousResults = latestExerciseResults(data.history);
   const unavailable = validPlan() ? '' : 'disabled';
   return `<div class="section-title"><h2>${escape(plan.name)}</h2><span class="badge">約${humanTime(time)}</span></div>
     <p class="subtle">${mainCount(plan.rows)} ＋ 準備運動・整理運動　·　種目名を押すと動き・負荷部位・出典を確認できます</p>
@@ -213,8 +214,13 @@ function planMarkup() {
         const kind = ['warm','cool'].includes(item.type) ? item.type : 'main';
         if (kind !== phase) return '';
         const set = labels[index] ? ` · ${labels[index]}` : '';
+        const previous = previousResults.get(row.id)?.result;
+        const previousLabel = previous
+          ? `前回 ${statusLabels[previous.status]}${previous.rating ? ` · ${ratingLabels[previous.rating]}` : ''}（予定 ${duration(previous.row)}）`
+          : '';
         return `<div class="routine-row"><div><button type="button" class="move-name" data-action="preview" data-value="${row.id}" aria-haspopup="dialog">${escape(item.name)}${set}</button>
-          <div class="move-meta">${details(item)}${item.sides ? ` · 左右の切り替え ${sideSwitchSeconds}秒` : ''}${index ? ` · 前に休憩 ${row.rest}秒` : ''}</div></div>
+          <div class="move-meta">${details(item)}${item.sides ? ` · 左右の切り替え ${sideSwitchSeconds}秒` : ''}${index ? ` · 前に休憩 ${row.rest}秒` : ''}</div>
+          ${previousLabel ? `<div class="move-meta">${previousLabel}</div>` : ''}</div>
           <span class="badge">${duration(row)}</span>${button('差し替え','replace','small',index, `aria-label="${escape(item.name)}${set}を差し替え"`)}</div>`;
       }).join('')}</section>`).join('')}
     `;
@@ -345,7 +351,13 @@ function renderSaved() {
 
 function renderHistory() {
   const entries = [...data.history].sort((a,b)=>Date.parse(b.date)-Date.parse(a.date));
+  const week = weeklyActivity(entries);
   app.innerHTML = `<section class="page"><div class="page-head"><h1 id="history-title" tabindex="-1">トレーニング履歴</h1><a class="btn" href="#settings">バックアップ</a></div>
+  <div class="stack"><section class="panel list-card" aria-labelledby="weekly-activity-title">
+    <h2 id="weekly-activity-title">今週の運動</h2>
+    <p>実施 ${week.days}日 · 運動時間 ${humanTime(week.seconds)}</p>
+    <p class="subtle">月曜から日曜まで。途中終了までの運動時間も含みます。</p>
+  </section>
   ${entries.length ? `<table class="data-table history-table" aria-labelledby="history-title">
     <thead><tr><th scope="col">メニュー・日時</th><th scope="col">運動時間</th><th scope="col">結果</th></tr></thead>
     <tbody>${entries.map(entry => `<tr><th scope="row">
@@ -353,7 +365,7 @@ function renderHistory() {
       <time class="subtle history-meta" id="history-date-${escape(entry.id)}" datetime="${escape(entry.date)}">${formatDate(entry.date)}</time></th>
       <td>${humanTime(entry.active)}</td>
       <td>${entry.ended ? '途中終了' : '終了'}${entry.rating ? `<span class="subtle history-meta">${ratingLabels[entry.rating]}</span>` : ''}</td></tr>`).join('')}
-    </tbody></table>` : '<p class="empty">トレーニングの記録はまだありません。</p>'}</section>`;
+    </tbody></table>` : '<p class="empty">トレーニングの記録はまだありません。</p>'}</div></section>`;
 }
 
 function historyDetail(id) {
