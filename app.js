@@ -1,9 +1,9 @@
-import {poses, gear, zones, purposes, phases, levels, exercises, catalog, isMainType, seatedDiagrams, diagramStages, footGuides} from './catalog.js?v=17';
-import {defaultSettings, ratingLabels, statusLabels, generate, estimate, alternatives, allowed, floorChanges, validate, repSeconds, explainPlan, menuMinutes, setLabels, sideSwitchSeconds} from './planner.js?v=20';
-import {attachDiagram, setDiagramFrame, announce, voiceAvailable, silence, unlockSound} from './media.js?v=21';
-import {Guide} from './guide.js?v=21';
+import {poses, gear, zones, phases, levels, exercises, catalog, isMainType, seatedDiagrams, diagramStages, footGuides} from './catalog.js?v=17';
+import {defaultSettings, ratingLabels, statusLabels, generate, estimate, alternatives, allowed, arrangePhasePostures, validate, repSeconds, explainPlan, menuMinutes, setLabels, sideSwitchSeconds, selectedTrainingTypes} from './planner.js?v=23';
+import {attachDiagram, setDiagramFrame, announce, voiceAvailable, silence, unlockSound} from './media.js?v=24';
+import {Guide} from './guide.js?v=24';
 import {curatedSource, evidence, intensity, references} from './evidence.js?v=17';
-import {defaultLibraryFilters, exerciseTypes, filterExercises, libraryExercise, libraryGear, libraryPoses, libraryTypes, workoutBreakdown} from './workout-view.js?v=8';
+import {defaultLibraryFilters, exerciseTypes, filterExercises, libraryExercise, libraryGear, libraryPoses, trainingTypes, workoutBreakdown} from './workout-view.js?v=11';
 import {hiitGroups, hiitSubgroups} from './hiit-library.js?v=3';
 
 const app = document.querySelector('#app');
@@ -19,7 +19,7 @@ try {
 } catch { loadError = true; }
 const selectablePoses = Object.fromEntries(Object.entries(poses).filter(([pose]) =>
   catalog.some(item => item.pose === pose && Object.hasOwn(curatedSource,item.id))));
-let options = {purpose:'mixed', minutes:15, poses:Object.keys(selectablePoses), noJump:true};
+let options = {types:['strength','stretch'], minutes:15, poses:Object.keys(selectablePoses), noJump:true};
 let plan = null;
 let planSettingsKey = '';
 let session = null;
@@ -39,6 +39,7 @@ const choices = (table, active, name, kind) => Object.entries(table).map(([key,l
 const clock = sec => `${Math.floor(Math.max(0,sec)/60)}:${String(Math.max(0,sec)%60).padStart(2,'0')}`;
 const humanTime = sec => `${Math.floor(sec/60)}分${sec%60 ? `${sec%60}秒` : ''}`;
 const formatDate = date => new Intl.DateTimeFormat('ja-JP',{dateStyle:'medium',timeStyle:'short'}).format(new Date(date));
+const trainingTypeLabel = settings => selectedTrainingTypes(settings).map(type=>trainingTypes[type]).join('＋');
 
 function snackbar(message) {
   notice.hidden = false;
@@ -129,7 +130,7 @@ function details(item) {
 }
 
 const hero = `<section class="hero">
-  <div class="hero-copy"><h1>自宅トレーニング</h1><p>目的と今日できる姿勢を選び、動きと音声のガイドに沿って進めます。</p></div>
+  <div class="hero-copy"><h1>自宅トレーニング</h1><p>運動の種類と今日できる姿勢を選び、動きと音声のガイドに沿って進めます。</p></div>
   <svg class="hero-art" viewBox="0 0 520 225" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
     <ellipse cx="377" cy="113" rx="164" ry="99" fill="#402860"/>
     <ellipse cx="377" cy="113" rx="180" ry="117" fill="none" stroke="#674d8b" stroke-width="1"/>
@@ -145,7 +146,7 @@ function renderPlan() {
   app.innerHTML = hero + `<div class="layout">
   <form id="plan-form" class="panel stack">
     <h2>メニュー作成</h2>
-    <fieldset><legend>目的</legend><div class="chips">${choices(purposes,[options.purpose],'purpose','radio')}</div></fieldset>
+    <fieldset><legend>運動の種類</legend><div class="chips">${choices(trainingTypes,selectedTrainingTypes(options),'type')}</div></fieldset>
     <fieldset><legend>所要時間の目安</legend><div class="chips">${menuMinutes.map(n => checkbox(n,`${n}分`,options.minutes===n,'minutes','radio')).join('')}</div></fieldset>
     <fieldset><legend>今日できる姿勢</legend><div class="chips">${choices(selectablePoses,options.poses,'pose')}</div></fieldset>
     <div class="chips">${checkbox('yes','ジャンプなし',options.noJump,'noJump')}</div>
@@ -158,7 +159,7 @@ function renderPlan() {
 
 function planResult() {
   return plan ? planMarkup() : `<div class="section-title"><h2>トレーニングメニュー</h2></div>
-    ${failedOptions ? limitationNotice(failedOptions,null) : '<div class="empty"><p>目的・時間・姿勢を選んで、今日のメニューを作りましょう。</p><p>先に動きを確認するなら、<a href="#library">種目ライブラリへ</a>。</p></div>'}`;
+    ${failedOptions ? limitationNotice(failedOptions,null) : '<div class="empty"><p>運動の種類・時間・姿勢を選んで、今日のメニューを作りましょう。</p><p>先に動きを確認するなら、<a href="#library">種目ライブラリへ</a>。</p></div>'}`;
 }
 
 function focusPlanResult() {
@@ -175,7 +176,9 @@ function generationSettings() {
 function planNeedsRefresh() {
   if (!plan) return false;
   const old = plan.options;
-  return old.purpose!==options.purpose || old.minutes!==options.minutes
+  const oldTypes = selectedTrainingTypes(old);
+  const types = selectedTrainingTypes(options);
+  return oldTypes.length!==types.length || oldTypes.some(type=>!types.includes(type)) || old.minutes!==options.minutes
     || Boolean(old.noJump)!==Boolean(options.noJump)
     || old.poses.length!==options.poses.length || old.poses.some(pose=>!options.poses.includes(pose))
     || generationSettings()!==planSettingsKey;
@@ -210,7 +213,7 @@ function planMarkup() {
         const kind = ['warm','cool'].includes(item.type) ? item.type : 'main';
         if (kind !== phase) return '';
         const set = labels[index] ? ` · ${labels[index]}` : '';
-        return `<div class="routine-row"><div><button type="button" class="move-name" data-action="preview" data-value="${row.id}">${escape(item.name)}${set}</button>
+        return `<div class="routine-row"><div><button type="button" class="move-name" data-action="preview" data-value="${row.id}" aria-haspopup="dialog">${escape(item.name)}${set}</button>
           <div class="move-meta">${details(item)}${item.sides ? ` · 左右の切り替え ${sideSwitchSeconds}秒` : ''}${index ? ` · 前に休憩 ${row.rest}秒` : ''}</div></div>
           <span class="badge">${duration(row)}</span>${button('差し替え','replace','small',index, `aria-label="${escape(item.name)}${set}を差し替え"`)}</div>`;
       }).join('')}</section>`).join('')}
@@ -223,7 +226,6 @@ function planNotice() {
     return '<p class="alert">この保存メニューには現在の種目集にない動作が含まれています。「メニューを作る」を押すと、出典のある種目で作り直せます。</p>';
   }
   if (!validPlan()) return '<p class="alert">現在の設定で使えない種目があります。差し替えるか、メニューを作り直してください。</p>';
-  if (floorChanges(plan.rows,{includePhaseBoundaries:false}) > 1) return '<p class="alert">このメニューは各区間内で立位と床を合計2回以上切り替えます。「メニューを作る」を押すと、現在の条件で姿勢をまとめたメニューを作れます。</p>';
   return limitationNotice(plan.options,plan.rows);
 }
 
@@ -231,29 +233,29 @@ function limitationNotice(request, rows) {
   const limitation = explainPlan(request,data.settings,rows);
   if (!limitation) return '';
   planSuggestions = limitation.suggestions;
-  const labels = {strength:'筋力',stretch:'柔軟性'};
   const reasons = {
+    types:'筋力・柔軟性・有酸素から、運動の種類を1つ以上選んでください。',
     poses:'できる姿勢が選ばれていません。今日できる姿勢を選んでください。',
-    main:'選んだ姿勢・目的・設定に合う本編の種目がありません。',
+    main:'選んだ姿勢・運動の種類・設定に合う本編の種目がありません。',
     warm:'選んだ姿勢と設定で使えるウォームアップがありません。',
     cool:'選んだ姿勢と設定で使えるクールダウンがありません。',
-    type:'選んだ姿勢と設定に合う種目が、片方の種類に限られています。',
-    sequence:`条件に合う本編の候補は ${limitation.eligibleMain} 種目です。${request.minutes>=30 ? '自動作成では、各種目を最大3セットまで組み込みます。' : '本編では立位と床の切り替えを1回以内に抑えています。'}`,
+    type:'選んだ姿勢と設定で使える種目が見つからない種類があります。',
+    sequence:`条件に合う本編の候補は ${limitation.eligibleMain} 種目です。${request.minutes>=30 ? '自動作成では、各種目を最大3セットまで組み込みます。' : '各区間では立位の種目を先に、床の種目を後にまとめています。'}`,
     fit:'休憩・準備運動・整理運動を含めると、今の条件で本編まで組めません。'
   };
   const summary = rows
     ? `指定 ${request.minutes}分 → 約${humanTime(limitation.time)}${limitation.gap>75 ? `（約${humanTime(limitation.gap)}短い）` : ''}`
     : `指定 ${request.minutes}分のメニューを作れませんでした`;
-  const missing = rows && limitation.missing.length ? `<p>${limitation.missing.map(type=>labels[type]).join('・')}の種目を組み込めませんでした。</p>` : '';
+  const missing = rows && limitation.missing.length ? `<p>${limitation.missing.map(type=>trainingTypes[type]).join('・')}の種目を組み込めませんでした。</p>` : '';
   const actions = planSuggestions.map((item,index)=>{
     const label = item.kind==='pose' ? `「${poses[item.value]}」を追加`
-      : item.kind==='time' ? `${item.value}分に変更` : `目的を「${purposes[item.value]}」に変更`;
+      : item.kind==='time' ? `${item.value}分に変更` : `「${trainingTypes[item.value]}」だけに変更`;
     return button(`${label}（約${humanTime(item.time)}）`,'apply-plan-suggestion','small',index);
   });
   const next = actions.length
     ? `<p>${rows ? '今のメニューで始めることもできます。' : ''}今日できる条件があれば、下のボタンで作り直せます。</p><div class="actions">${actions.join('')}</div>`
     : rows ? '<p>この時間でそのまま始められます。</p>'
-      : limitation.reason==='poses' ? '' : '<p>使える道具があれば <a href="#settings">設定</a> に追加するか、別の目的・姿勢を選んでください。</p>';
+      : ['types','poses'].includes(limitation.reason) ? '' : '<p>使える道具があれば <a href="#settings">設定</a> に追加するか、別の運動の種類・姿勢を選んでください。</p>';
   return `<div class="alert plan-limit" role="region" aria-label="メニューの条件"><p><strong>${summary}</strong></p>
     ${missing}<p>${reasons[limitation.reason]}</p>${next}</div>`;
 }
@@ -281,7 +283,7 @@ function renderLibrary() {
         <summary>詳しい絞り込み <span id="library-active-count"></span></summary>
         <div class="library-selects">
           ${select('pose','姿勢',optionsFor(libraryPoses,libraryFilters.pose))}
-          ${select('type','運動の種類',optionsFor(libraryTypes,libraryFilters.type))}
+          ${select('type','運動の種類',optionsFor(trainingTypes,libraryFilters.type))}
           ${select('classification','動きの分類',classifications)}
         </div>
         <label><input type="checkbox" name="available" ${libraryFilters.availableOnly ? 'checked' : ''}>現在の設定でメニューに使える種目だけ</label>
@@ -337,7 +339,7 @@ function readLibraryFilters(form) {
 function renderSaved() {
   app.innerHTML = `<section class="page"><div class="page-head"><h1>保存メニュー</h1><a class="btn" href="#plan">メニュー作成</a></div>
   <div class="stack">${data.saved.length ? data.saved.map(entry => `<article class="panel list-card">
-  <h2>${escape(entry.name)}</h2><p class="subtle">${purposes[entry.options.purpose]} · 約${humanTime(estimate(entry.rows))} · ${mainCount(entry.rows)}</p>
+  <h2>${escape(entry.name)}</h2><p class="subtle">${trainingTypeLabel(entry.options)} · 約${humanTime(estimate(entry.rows))} · ${mainCount(entry.rows)}</p>
   <div class="actions">${button('メニューを開く','open-plan','primary',entry.id)}${button('削除','delete-plan-dialog','danger',entry.id)}</div></article>`).join('') : '<p class="empty">保存したメニューはまだありません。</p>'}</div></section>`;
 }
 
@@ -643,7 +645,7 @@ app.addEventListener('change',async event => {
   }
   if (input.closest('#plan-form')) {
     const form = new FormData(input.form);
-    options = {purpose:form.get('purpose'), minutes:Number(form.get('minutes')), poses:form.getAll('pose'), noJump:form.has('noJump')};
+    options = {types:form.getAll('type'), minutes:Number(form.get('minutes')), poses:form.getAll('pose'), noJump:form.has('noJump')};
     failedOptions = null;
     planSuggestions = [];
     document.querySelector('#plan-result').innerHTML = planResult();
@@ -683,7 +685,7 @@ app.addEventListener('input',event => {
 function setGeneratedPlan(next,rows) {
   options = structuredClone(next);
   failedOptions = rows ? null : structuredClone(options);
-  plan = rows ? {name:purposes[options.purpose]+'メニュー',options:structuredClone(options),rows} : null;
+  plan = rows ? {name:trainingTypeLabel(options)+'メニュー',options:structuredClone(options),rows} : null;
   planSettingsKey = generationSettings();
   renderPlan();
   focusPlanResult();
@@ -740,7 +742,7 @@ document.addEventListener('click',event => {
     case 'preview':
     case 'preview-library': {
       const item = action==='preview-library' ? libraryExercise(value) : exercises[value];
-      const type = action==='preview-library' ? libraryTypes[item.type] : exerciseTypes[item.type];
+      const type = action==='preview-library' ? trainingTypes[item.type] : exerciseTypes[item.type];
       openDialog(`<header class="preview-head">
         <div><h2 tabindex="-1" autofocus>${escape(item.name)}</h2><p class="subtle">${[type,details(item)].filter(Boolean).join(' · ')}</p></div>
         ${button('閉じる','close','small')}
@@ -759,7 +761,7 @@ document.addEventListener('click',event => {
     case 'swap': {
       const [index,id] = value.split(':');
       const row = alternatives(plan.rows,Number(index),{...plan.options,poses:options.poses},s).find(row => row.id===id);
-      if (row) plan.rows[Number(index)] = row;
+      if (row) plan.rows = arrangePhasePostures(plan.rows.with(Number(index),row));
       dialog.close();
       renderPlan();
       break;
@@ -773,6 +775,7 @@ document.addEventListener('click',event => {
       const entry = data.saved.find(item => item.id===value);
       if (!entry) break;
       plan = structuredClone(entry);
+      plan.rows = arrangePhasePostures(plan.rows);
       planSettingsKey = generationSettings();
       options = {...plan.options,poses:plan.options.poses.filter(pose => Object.hasOwn(selectablePoses,pose))};
       failedOptions = null;

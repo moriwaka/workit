@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {exercises, frames, levels, zones} from '../catalog.js?v=17';
 import {curatedSource, evidence, references} from '../evidence.js?v=17';
-import {allowed, alternatives, defaultSettings, estimate, generate, validate} from '../planner.js?v=20';
+import {allowed, alternatives, defaultSettings, estimate, generate, validate} from '../planner.js?v=23';
 import {hiitExercises, hiitSubgroups} from '../hiit-library.js?v=3';
-import {filterExercises, libraryExercise, libraryGear, libraryPoses, libraryTypes, workoutBreakdown} from '../workout-view.js?v=8';
+import {filterExercises, libraryExercise, libraryGear, libraryPoses, trainingTypes, workoutBreakdown} from '../workout-view.js?v=11';
 
 test('verified HIIT exercises generate timed cardio rows and survive backup restore', () => {
   const exercise = exercises['hiit-standing-jacks-low-impact'];
@@ -105,7 +105,7 @@ test('library search normalizes kana, half-width characters, and whitespace', ()
 });
 
 test('library search offers movement types and finds phase exercises by movement', () => {
-  assert.deepEqual(Object.keys(libraryTypes),['strength','stretch','cardio']);
+  assert.deepEqual(Object.keys(trainingTypes),['strength','stretch','cardio']);
   assert.ok(filterExercises({query:'足踏み'},defaultSettings).some(item=>item.id==='march'));
   assert.ok(filterExercises({query:'呼吸'},defaultSettings).some(item=>item.id==='sit-breathe'));
   for (const query of ['準備運動','整理運動']) {

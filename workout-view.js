@@ -1,10 +1,10 @@
 import {catalog, exercises, gear, phases, poses, zones} from './catalog.js?v=17';
 import {curatedSource, evidence} from './evidence.js?v=17';
-import {allowed, effort, sideSwitchSeconds} from './planner.js?v=20';
+import {allowed, effort, sideSwitchSeconds} from './planner.js?v=23';
 import {hiitExercises, hiitGroups, hiitPoses, hiitSubgroups} from './hiit-library.js?v=3';
 
 export const exerciseTypes = {warm:'準備運動',strength:'筋力',stretch:'柔軟性',cool:'整理運動',cardio:'有酸素'};
-export const libraryTypes = {strength:exerciseTypes.strength,stretch:exerciseTypes.stretch,cardio:exerciseTypes.cardio};
+export const trainingTypes = {strength:exerciseTypes.strength,stretch:exerciseTypes.stretch,cardio:exerciseTypes.cardio};
 export const libraryPoses = {...poses,...hiitPoses};
 export const libraryGear = gear;
 export const defaultLibraryFilters = {query:'',pose:'',type:'',classification:'',availableOnly:false,noJump:false};
@@ -42,7 +42,7 @@ const library = new Map(catalog.filter(item=>Object.hasOwn(curatedSource,item.id
   const types = variants.map(variant=>variant.type);
   const target = evidence[item.id].target;
   const searchText = normalize([
-    item.name, target, libraryPoses[item.pose], ...types.map(type=>libraryTypes[type]), hiitGroups[group],
+    item.name, target, libraryPoses[item.pose], ...types.map(type=>trainingTypes[type]), hiitGroups[group],
     item.gear.length ? item.gear.map(key=>libraryGear[key]).join(' ') : '道具なし',
     ...item.load.map(key=>zones[key]),
     ...(hiit ? [

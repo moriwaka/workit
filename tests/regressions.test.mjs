@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {alternatives, defaultSettings, validate} from '../planner.js?v=20';
+import {alternatives, defaultSettings, validate} from '../planner.js?v=23';
 
 test('two-sided preparation and cooldown substitutions survive backup restore', () => {
   const options = {purpose:'strength',minutes:10,poses:['all4','side']};

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {defaultSettings, validate} from '../planner.js?v=20';
+import {defaultSettings, selectedTrainingTypes, validate} from '../planner.js?v=23';
 
 const backup = () => ({version:1,settings:structuredClone(defaultSettings),
   saved:[{id:'menu',name:'メニュー',options:{purpose:'strength',minutes:10,poses:['stand']},
@@ -27,6 +27,14 @@ test('legacy settings get default adjustments and duplicate choices are normaliz
   assert.deepEqual(clean.saved[0].options.poses,['stand']);
 });
 
+test('backups preserve multi-type selections and read the legacy mixed purpose', () => {
+  const input = backup();
+  input.saved[0].options = {types:['strength','cardio'],minutes:10,poses:['stand']};
+  assert.deepEqual(validate(input),input);
+  input.saved[0].options = {purpose:'mixed',minutes:10,poses:['stand']};
+  assert.deepEqual(selectedTrainingTypes(validate(input).saved[0].options),['strength','stretch']);
+});
+
 const invalid = [
   ['unsupported version',data=>{data.version=2;}],
   ['missing history',data=>{delete data.history;}],
@@ -42,6 +50,8 @@ const invalid = [
   ['invalid menu id',data=>{data.saved[0].id='<script>'; }],
   ['blank menu name',data=>{data.saved[0].name=' ';}],
   ['unknown purpose',data=>{data.saved[0].options.purpose='unknown';}],
+  ['empty training types',data=>{data.saved[0].options.types=[];}],
+  ['unknown training type',data=>{data.saved[0].options.types=['strength','warm'];}],
   ['unknown posture',data=>{data.saved[0].options.poses=['unknown'];}],
   ['too few rows',data=>{data.saved[0].rows.pop();}],
   ['unknown exercise',data=>{data.saved[0].rows[1].id='unknown';}],

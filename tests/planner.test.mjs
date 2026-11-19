@@ -2,10 +2,31 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {catalog, exercises, poses, purposes, frames, stepLayout, stepStages, heelDigFloor, heelDigStages, kneeRollStages, diagramFloor, footGuides} from '../catalog.js?v=17';
 import {curatedSource, evidence, intensity, references} from '../evidence.js?v=17';
-import {allowed, alternatives, defaultSettings, estimate, floorChanges, generate, validate, explainPlan, setLabels} from '../planner.js?v=20';
+import {allowed, alternatives, arrangePhasePostures, defaultSettings, estimate, floorChanges, generate, validate, explainPlan, setLabels} from '../planner.js?v=23';
 
 const defaultOptions = {purpose:'stretch', minutes:15, poses:Object.keys(poses)};
 const withinPhaseChanges = rows=>floorChanges(rows,{includePhaseBoundaries:false});
+
+test('checked training types can be combined in any nonempty selection', () => {
+  const choices = ['strength','stretch','cardio'];
+  for (let mask=1; mask<8; mask++) {
+    const types = choices.filter((_,index)=>mask & (1<<index));
+    const options = {types,minutes:15,poses:['stand'],noJump:true};
+    const plan = generate(options,defaultSettings,()=>.42);
+    assert.ok(plan,types.join(','));
+    const actual = new Set(plan.map(row=>exercises[row.id].type).filter(type=>choices.includes(type)));
+    assert.deepEqual(actual,new Set(types));
+  }
+  const options = {types:[],minutes:15,poses:['stand']};
+  assert.equal(generate(options,defaultSettings),null);
+  assert.equal(explainPlan(options,defaultSettings,null).reason,'types');
+
+  const limited = {...options,types:['stretch','cardio']};
+  const settings = {...defaultSettings,excluded:catalog.filter(item=>item.type==='cardio').map(item=>item.id)};
+  const plan = generate(limited,settings,()=>.42);
+  assert.ok(plan);
+  assert.deepEqual(explainPlan(limited,settings,plan).missing,['cardio']);
+});
 
 test('standing warm-up and cooldown can surround a floor-only main workout', () => {
   const options = {purpose:'strength',minutes:10,poses:['stand','back']};
@@ -32,6 +53,47 @@ test('substitutions may introduce a floor transition at either phase boundary', 
   }
 });
 
+test('both warm-up and cooldown can be generated with a change of posture', () => {
+  const options = {types:['strength'],minutes:10,poses:['stand','back']};
+  const permitted = ['march','heel-slide','warm-pelvic','bridge','cool-slide','back-breathe','slow-march'];
+  const settings = {...defaultSettings,excluded:Object.keys(curatedSource).filter(id=>!permitted.includes(id))};
+  const rows = generate(options,settings,()=>0);
+  for (const type of ['warm','cool']) {
+    const phase = rows.filter(({id})=>exercises[id].type===type);
+    assert.deepEqual([...new Set(phase.map(({id})=>exercises[id].pose))],['stand','back']);
+    if (type==='cool') assert.equal(phase.at(-1).id,'back-breathe');
+  }
+  assert.ok(estimate(rows)<=options.minutes*60);
+});
+
+test('swapping posture in both warm-up and cooldown keeps standing exercises first', () => {
+  const options = {types:['strength'],minutes:10,poses:['stand','back']};
+  const rows = [{id:'heel-slide',seconds:40,rest:0},{id:'warm-pelvic',seconds:40,rest:10},
+    {id:'bridge',reps:4,rest:30},{id:'cool-slide',seconds:40,rest:10},{id:'back-breathe',seconds:40,rest:10}];
+  const opening = alternatives(rows,0,options,defaultSettings).find(row=>row.id==='march');
+  assert.ok(opening);
+  const changed = arrangePhasePostures(rows.with(0,opening));
+  const closing = alternatives(changed,4,options,defaultSettings).find(row=>row.id==='slow-march');
+  assert.ok(closing);
+  const final = arrangePhasePostures(changed.with(4,closing));
+  assert.equal(withinPhaseChanges(final),2);
+  assert.deepEqual(final.map(row=>row.id),['march','warm-pelvic','bridge','slow-march','cool-slide']);
+});
+
+test('standing-first sorting is stable per phase and preserves the workout time', () => {
+  const rows = [{id:'heel-slide',seconds:40,rest:0},{id:'march',seconds:45,rest:10},
+    {id:'warm-knee',seconds:30,rest:12},{id:'bridge',reps:4,rest:30},
+    {id:'calf',reps:4,rest:25},{id:'sit-ham',seconds:30,rest:20},
+    {id:'cool-slide',seconds:40,rest:10},{id:'slow-march',seconds:45,rest:15}];
+  const sorted = arrangePhasePostures(rows);
+  assert.deepEqual(sorted.map(row=>row.id),['march','warm-knee','heel-slide','calf','bridge','sit-ham','slow-march','cool-slide']);
+  assert.equal(sorted[0].rest,0);
+  assert.equal(sorted[2].rest,10);
+  assert.equal(estimate(sorted),estimate(rows));
+  assert.equal(rows[0].rest,0);
+  assert.equal(withinPhaseChanges(sorted),3);
+});
+
 test('the transition limit still counts standing and floor round trips within the main phase', () => {
   const rows = ['heel-slide','fallout','sit-ham','sit-hips','sit-turn','sit-hips',
     'calf-stretch','side-bend','calf-stretch','rock-stretch','toe'].map(id => ({id}));
@@ -39,7 +101,7 @@ test('the transition limit still counts standing and floor round trips within th
   assert.equal(withinPhaseChanges(rows),2);
   const replacement = generate(defaultOptions,defaultSettings,()=>.42);
   assert.ok(replacement);
-  assert.ok(withinPhaseChanges(replacement)<=1);
+  assert.deepEqual(replacement,arrangePhasePostures(replacement));
 });
 
 test('generator keeps standing and floor in blocks while honoring excluded regions, equipment, and time', () => {
@@ -62,7 +124,7 @@ test('generator keeps standing and floor in blocks while honoring excluded regio
           plans++;
           assert.ok(estimate(plan)<=minutes*60);
           assert.ok(plan.every(row=>allowed(exercises[row.id],options,settings) && Object.hasOwn(curatedSource,row.id)));
-          assert.ok(withinPhaseChanges(plan)<=1,JSON.stringify({options,plan}));
+          assert.deepEqual(plan,arrangePhasePostures(plan),JSON.stringify({options,plan}));
         }
       }
     }
@@ -79,7 +141,7 @@ test('30- and 40-minute plans extend past 16 sets and survive saving and backup 
     assert.ok(main.length>16);
     assert.ok(estimate(rows)>=minutes*60-75);
     assert.ok(estimate(rows)<=minutes*60);
-    assert.ok(withinPhaseChanges(rows)<=1);
+    assert.deepEqual(rows,arrangePhasePostures(rows));
     const labels = setLabels(rows);
     assert.ok(labels.includes('2セット目'));
     assert.ok(!labels.includes('4セット目'));
@@ -100,8 +162,8 @@ test('substitutions preserve the posture and time limits', () => {
   let substitutions = 0;
   for (const index of plan.keys()) {
     for (const option of alternatives(plan,index,defaultOptions,defaultSettings)) {
-      const replaced = plan.with(index,option);
-      assert.ok(withinPhaseChanges(replaced)<=1);
+      const replaced = arrangePhasePostures(plan.with(index,option));
+      assert.deepEqual(replaced,arrangePhasePostures(replaced));
       assert.ok(estimate(replaced)<=defaultOptions.minutes*60);
       substitutions++;
     }
@@ -200,7 +262,7 @@ test('limited plans report duration and only offer changes backed by an eligible
   for (const item of result.suggestions) {
     assert.equal(item.time,estimate(item.rows));
     assert.ok(item.rows.every(row=>allowed(exercises[row.id],item.options,settings)));
-    assert.ok(withinPhaseChanges(item.rows)<=1);
+    assert.deepEqual(item.rows,arrangePhasePostures(item.rows));
   }
   const noPose = explainPlan({...options,poses:[]},settings,null);
   assert.equal(noPose.reason,'poses');

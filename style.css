@@ -66,8 +66,8 @@ select,input[type=text],input[type=search] { width:100%; min-width:0; color:var(
 .routine-section { margin-top:17px }
 .routine-section h3 { font-size:.82rem; color:var(--purple); font-weight:760; margin:0 0 5px }
 .routine-row { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:9px; align-items:center; min-height:47px; padding:6px 0; border-bottom:1px solid var(--line) }
-.move-name { background:none; padding:0; color:var(--ink); border:0; text-align:left; font-weight:720; font-size:.92rem }
-.move-name:hover { color:var(--purple); text-decoration:underline }
+.move-name { background:none; padding:0; color:var(--purple); border:0; text-align:left; font-weight:720; font-size:.92rem; text-decoration:underline; text-underline-offset:.16em; max-width:100%; overflow-wrap:anywhere }
+.move-name:hover { color:var(--deep) }
 .move-meta { color:var(--muted); font-size:.76rem; margin-top:2px }
 .routine-footer { margin-top:18px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px }
 .alert { background:#fff2ec; border:1px solid #f6d3c5; color:#733c28; border-radius:10px; padding:11px 13px; font-size:.86rem }
@@ -188,7 +188,7 @@ dialog .stack { gap:9px }
 .data-table tbody th,.data-table tbody td { border-top:1px solid var(--line); font-weight:400 }
 .data-table tbody td { font-size:.88rem }
 .data-table tbody tr:hover,.data-table tbody tr:focus-within { background:var(--bg) }
-.data-table .move-name { color:var(--purple); text-decoration:underline; text-underline-offset:.16em; min-height:44px; max-width:100%; overflow-wrap:anywhere }
+.data-table .move-name { min-height:44px }
 .history-table th:last-child { width:28% }
 .history-table .move-name,.history-meta { line-height:1.5 }
 .history-meta { display:block }

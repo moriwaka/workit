@@ -66,19 +66,32 @@ export function setLabels(rows) {
 
 const upright = new Set(['stand','standFloor','standKneel','chair']);
 const floorChange = (first,second)=>Number(upright.has(first)!==upright.has(second));
+const phaseOf = item => isMainType(item.type) ? 'main' : item.type;
 
-function matchesPurpose(type,purpose) {
-  return purpose==='mixed' ? ['strength','stretch'].includes(type) : type===purpose;
+export function selectedTrainingTypes({types,purpose}) {
+  return types ?? (purpose==='mixed' ? ['strength','stretch'] : isMainType(purpose) ? [purpose] : []);
 }
 
 export function floorChanges(rows,{includePhaseBoundaries=true}={}) {
-  const phase = item => isMainType(item.type) ? 'main' : item.type;
   return rows.slice(1).reduce((count,row,index) => {
     const previous = exercises[rows[index].id];
     const current = exercises[row.id];
-    if (!includePhaseBoundaries && phase(previous)!==phase(current)) return count;
+    if (!includePhaseBoundaries && phaseOf(previous)!==phaseOf(current)) return count;
     return count + floorChange(previous.pose,current.pose);
   },0);
+}
+
+export function arrangePhasePostures(rows) {
+  const ordered = ['warm','main','cool'].flatMap(phase=>rows
+    .filter(({id})=>phaseOf(exercises[id])===phase)
+    .sort((a,b)=>Number(upright.has(exercises[b.id].pose))-Number(upright.has(exercises[a.id].pose))));
+  if (ordered.length && ordered[0]!==rows[0]) {
+    // The first row has no preceding rest. Preserve the total when it moves.
+    const oldFirst = ordered.indexOf(rows[0]);
+    ordered[oldFirst] = {...rows[0],rest:ordered[0].rest};
+    ordered[0] = {...ordered[0],rest:rows[0].rest};
+  }
+  return ordered;
 }
 
 const phaseExercises = {
@@ -99,7 +112,6 @@ function phasePlan(pool, targetPose, phase, minutes, firstMove) {
   if (ids.includes('march') && ids.includes('warm-elbow')) ids.splice(ids.indexOf('warm-elbow'),1);
   if (ids.includes('slow-march') && ids.includes('cool-stand-breath')) ids.splice(ids.indexOf('cool-stand-breath'),1);
   if (ids.includes('sit-ankles') && ids.includes('warm-sit-wrist')) ids.splice(ids.indexOf('warm-sit-wrist'),1);
-  const standard = minutes >= 20;
   if (phase === 'warm' && firstMove?.load.includes('shoulder') && ids.includes('warm-shoulder')) {
     ids.splice(ids.indexOf('warm-shoulder'),1);
     ids.push('warm-shoulder');
@@ -107,6 +119,11 @@ function phasePlan(pool, targetPose, phase, minutes, firstMove) {
     ids.splice(ids.indexOf('warm-knee'),1);
     ids.push('warm-knee');
   }
+  return phaseRows(ids,phase,minutes);
+}
+
+function phaseRows(ids,phase,minutes) {
+  const standard = minutes >= 20;
   return ids.map((id,index)=>{
     const item = exercises[id];
     let seconds;
@@ -120,11 +137,38 @@ function phasePlan(pool, targetPose, phase, minutes, firstMove) {
   });
 }
 
+const breathingMotions = new Set(['sitBreathe','breatheBack','standingStill']);
+
+function cooldownOrder(item) {
+  if (item.id==='slow-march') return 0;
+  if (breathingMotions.has(item.motion)) return 3;
+  return item.held ? 2 : 1;
+}
+
+function mixPhase(rows,pool,phase,minutes,spareSeconds,spareRows) {
+  const pose = exercises[rows[0].id].pose;
+  for (const item of pool) {
+    if (item.pose===pose) continue;
+    const [extra] = phaseRows([item.id],phase,minutes);
+    extra.rest = 10;
+    const index = rows.findLastIndex((row,i)=>i>0 && (phase==='warm' || (item.held && exercises[row.id].held))
+      && scheduledEffort(extra)-scheduledEffort(row)<=spareSeconds);
+    if (index>=0) return rows.with(index,extra);
+    if (spareRows && scheduledEffort(extra)+extra.rest<=spareSeconds) {
+      const next = phase==='cool' ? rows.findIndex(row=>cooldownOrder(exercises[row.id])>cooldownOrder(item)) : -1;
+      return rows.toSpliced(next<0 ? rows.length : next,0,extra);
+    }
+  }
+  return rows;
+}
+
 export function generate(options, settings, random = Math.random) {
+  const selected = selectedTrainingTypes(options);
+  if (!selected.length) return null;
   const pool = catalog.filter(item => allowed(item, options, settings));
   const warm = pool.filter(item => item.type === 'warm');
   const cool = pool.filter(item => item.type === 'cool');
-  const main = pool.filter(item => isMainType(item.type) && matchesPurpose(item.type,options.purpose));
+  const main = pool.filter(item => isMainType(item.type) && selected.includes(item.type));
   if (!warm.length || !cool.length || !main.length) return null;
 
   const seconds = options.minutes * 60;
@@ -147,7 +191,7 @@ export function generate(options, settings, random = Math.random) {
   });
 
   function compare(a,b) {
-    return Number(b.types === 3) - Number(a.types === 3)
+    return b.typeCount - a.typeCount
       || b.length - a.length
       || b.distinct - a.distinct
       || a.floorChanges - b.floorChanges
@@ -158,10 +202,10 @@ export function generate(options, settings, random = Math.random) {
 
   function compareFinished(a,b) {
     if (!extended) return compare(a,b);
-    return Number(b.types===3)-Number(a.types===3) || b.total-a.total || compare(a,b);
+    return b.typeCount-a.typeCount || b.total-a.total || compare(a,b);
   }
 
-  let beam = [{rows:[], counts:new Uint8Array(moves.length), distinct:0, types:0, time:0,
+  let beam = [{rows:[], counts:new Uint8Array(moves.length), distinct:0, types:0, typeCount:0, time:0,
     floorChanges:0, poseChanges:0, preference:0}];
   let best = null;
   for (let round = 0; round < maxRounds && beam.length; round++) {
@@ -183,7 +227,9 @@ export function generate(options, settings, random = Math.random) {
         expanded.push({
           parent:candidate,move,first,lastPose:item.pose,length,
           distinct:candidate.distinct+Number(repetitions===0),
-          types:candidate.types|mainTypeBits[item.type],time,total,opening,closing,
+          types:candidate.types|mainTypeBits[item.type],
+          typeCount:candidate.typeCount+Number(!(candidate.types & mainTypeBits[item.type])),
+          time,total,opening,closing,
           floorChanges:standingFloorChanges,
           poseChanges:candidate.poseChanges + Number(lastPose !== item.pose),
           preference:candidate.preference+move.priority
@@ -204,7 +250,12 @@ export function generate(options, settings, random = Math.random) {
   if (!best) return null;
 
   const {opening,closing} = best;
-  return [...opening,...best.rows.map(row=>({...row})),...closing];
+  const spareSeconds = seconds-best.total;
+  const spareRows = maxPlanRows-best.rows.length-opening.length-closing.length;
+  const mixedOpening = mixPhase(opening,warm,'warm',options.minutes,spareSeconds,spareRows);
+  const mixedClosing = mixPhase(closing,cool,'cool',options.minutes,
+    spareSeconds+estimate(opening)-estimate(mixedOpening),spareRows+opening.length-mixedOpening.length);
+  return arrangePhasePostures([...mixedOpening,...best.rows.map(row=>({...row})),...mixedClosing]);
 }
 
 export const menuMinutes = [10,15,20,30,40];
@@ -215,13 +266,15 @@ function mainTypes(rows) {
 
 export function explainPlan(options, settings, rows) {
   const time = rows ? estimate(rows) : 0;
-  const types = mainTypes(rows);
-  const missing = options.purpose==='mixed' ? ['strength','stretch'].filter(type=>!types.has(type)) : [];
+  const selected = selectedTrainingTypes(options);
   const gap = options.minutes*60-time;
+  if (!selected.length) return {reason:'types',gap,time,missing:[],eligibleMain:0,suggestions:[]};
+  const types = mainTypes(rows);
+  const missing = selected.filter(type=>!types.has(type));
   if (rows && gap<=75 && !missing.length) return null;
 
   const eligible = catalog.filter(item=>allowed(item,options,settings));
-  const eligibleMain = eligible.filter(item=>isMainType(item.type) && matchesPurpose(item.type,options.purpose));
+  const eligibleMain = eligible.filter(item=>isMainType(item.type) && selected.includes(item.type));
   const eligibleTypes = new Set(eligibleMain.map(item=>item.type));
   const reason = !options.poses.length ? 'poses'
     : !eligibleMain.length ? 'main'
@@ -259,8 +312,8 @@ export function explainPlan(options, settings, rows) {
     }
   }
   if (!rows && options.poses.length) {
-    for (const purpose of Object.keys(purposes)) {
-      if (purpose!==options.purpose) tryOption({purpose},'purpose',purpose);
+    for (const type of Object.keys(mainTypeBits)) {
+      if (selected.length!==1 || selected[0]!==type) tryOption({types:[type]},'type',type);
     }
   }
   suggestions.sort((a,b)=>Number(b.addsType)-Number(a.addsType)
@@ -271,11 +324,9 @@ export function explainPlan(options, settings, rows) {
 
 export function alternatives(rows, index, options, settings) {
   const current = exercises[rows[index].id];
-  const changes = plan=>floorChanges(plan,{includePhaseBoundaries:false});
-  const maxChanges = Math.max(1,changes(rows));
+  const selected = selectedTrainingTypes(options);
   const candidates = catalog.filter(item => item.id !== current.id && allowed(item, options, settings)
-    && (item.type === current.type || (options.purpose === 'mixed'
-      && ['strength','stretch'].includes(item.type) && ['strength','stretch'].includes(current.type))))
+    && (item.type === current.type || (selected.includes(item.type) && selected.includes(current.type))))
     .filter(item => !['warm','cool'].includes(current.type)
       || (Boolean(current.held)===Boolean(item.held) && !rows.some(row=>row.id===item.id)));
   return candidates.map(item => {
@@ -287,12 +338,8 @@ export function alternatives(rows, index, options, settings) {
       row.rest = rows[index].rest;
     }
     return row;
-  }).filter(row => {
-    const changed = rows.with(index, row);
-    return estimate(changed) <= options.minutes * 60
-      && changes(changed) <= maxChanges;
-  }).sort((a,b) => changes(rows.with(index,a)) - changes(rows.with(index,b))
-    || Number(exercises[b.id].pose === current.pose) - Number(exercises[a.id].pose === current.pose));
+  }).filter(row => estimate(rows.with(index,row)) <= options.minutes * 60)
+    .sort((a,b) => Number(exercises[b.id].pose === current.pose) - Number(exercises[a.id].pose === current.pose));
 }
 
 function uniqueKeys(list, table) {
@@ -330,8 +377,8 @@ export function validate(data) {
     return row.reps === undefined ? {id:row.id, rest:row.rest, seconds:row.seconds} : {id:row.id, rest:row.rest, reps:row.reps};
   };
   const saved = data.saved.map(entry => {
-    if (!id(entry.id) || !name(entry.name) || !Object.hasOwn(purposes,entry.options?.purpose)
-      || !numberBetween(entry.options.minutes,10,40) || !Array.isArray(entry.rows)
+    if (!id(entry.id) || !name(entry.name)
+      || !numberBetween(entry.options?.minutes,10,40) || !Array.isArray(entry.rows)
       || entry.rows.length < 3 || entry.rows.length > maxPlanRows) throw new Error('保存メニューが不正です。');
     const rows = entry.rows.map(cleanRow);
     const order = rows.map(row=>({warm:0,strength:1,stretch:1,cardio:1,cool:2})[exercises[row.id].type]);
@@ -340,12 +387,16 @@ export function validate(data) {
       || !order.includes(1) || order.some((phase,index)=>index>0 && phase<order[index-1])) {
       throw new Error('保存メニューの並び順が不正です。');
     }
-    const {purpose,minutes,noJump} = entry.options;
+    const {purpose,types,minutes,noJump} = entry.options;
+    const selection = types===undefined ? {purpose} : {types:uniqueKeys(types,mainTypeBits)};
+    if (types===undefined ? typeof purpose!=='string' || !Object.hasOwn(purposes,purpose) : !selection.types.length) {
+      throw new Error('保存メニューの運動の種類が不正です。');
+    }
     if (noJump!==undefined && typeof noJump!=='boolean') {
       throw new Error('保存メニューのジャンプ設定が不正です。');
     }
     return {id:entry.id, name:entry.name, options:{
-      purpose, minutes, poses:uniqueKeys(entry.options.poses,poses),
+      ...selection, minutes, poses:uniqueKeys(entry.options.poses,poses),
       ...(noJump===undefined ? {} : {noJump})
     }, rows};
   });
